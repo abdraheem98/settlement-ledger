@@ -1,0 +1,2993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settlement Ledger V21</title>
+  <meta name="app-version" content="21.0-date-repair-and-input-focus-fix">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --paper:#F5F5F1;
+    --paper-raised:#FFFFFF;
+    --ink:#182430;
+    --ink-soft:#565f68;
+    --ink-faint:#93998f;
+    --rule:#D8D6CC;
+    --gold:#A8762E;
+    --gold-soft:#F1E3C8;
+    --teal:#1F6E56;
+    --teal-soft:#DEEEE7;
+    --clay:#A8422F;
+    --clay-soft:#F3DFD9;
+    --amazon:#2A6FB5;
+    --flipkart:#C08A19;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    line-height:1.5;
+    padding:2.5rem 1.5rem 5rem;
+  }
+  .wrap{max-width:960px;margin:0 auto;}
+  header.top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    border-bottom:2px solid var(--ink);
+    padding-bottom:1rem;
+    margin-bottom:2rem;
+  }
+  h1{
+    font-family:'Source Serif 4',serif;
+    font-weight:600;
+    font-size:28px;
+    margin:0 0 4px;
+    letter-spacing:-0.01em;
+  }
+  .subtitle{color:var(--ink-soft);font-size:13px;margin:0;}
+  .stamp{
+    font-family:\'IBM Plex Mono\',monospace;
+    font-size:11px;
+    color:var(--gold);
+    border:1px solid var(--gold);
+    padding:4px 10px;
+    border-radius:999px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    white-space:nowrap;
+  }
+  h2{
+    font-family:'Source Serif 4',serif;
+    font-weight:500;
+    font-size:17px;
+    margin:0 0 1rem;
+  }
+  .platform-head{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:3rem 0 1.25rem;
+    padding-bottom:0.6rem;
+    border-bottom:2px solid var(--ink);
+  }
+  .platform-head h2{margin:0;font-size:19px;}
+  .platform-dot{width:11px;height:11px;border-radius:50%;}
+  .platform-dot.amazon{background:var(--amazon);}
+  .platform-dot.flipkart{background:var(--flipkart);}
+  .section{margin-bottom:2.5rem;}
+
+  /* Filter toolbar */
+  .tabs{display:flex;gap:6px;margin-bottom:0.85rem;flex-wrap:wrap;align-items:center;}
+  .tab{
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:500;
+    padding:7px 14px;
+    border-radius:999px;
+    border:1px solid var(--rule);
+    background:var(--paper-raised);
+    color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .tab.active{background:var(--ink);border-color:var(--ink);color:var(--paper);}
+
+  /* Dropzone */
+  #dropzone{
+    border:1.5px dashed var(--ink-faint);
+    border-radius:var(--radius);
+    padding:2rem 1.5rem;
+    text-align:center;
+    cursor:pointer;
+    background:var(--paper-raised);
+    transition:border-color .15s, background .15s;
+  }
+  #dropzone.drag{border-color:var(--gold);background:var(--gold-soft);}
+  #dropzone p{margin:0;font-size:14px;color:var(--ink-soft);}
+  #dropzone .icon{font-size:22px;color:var(--ink-faint);margin-bottom:8px;display:block;}
+  #dropzone strong{color:var(--ink);}
+  #fileInput{display:none;}
+  #dropStatus{
+    margin-top:12px;
+    font-family:\'IBM Plex Mono\',monospace;
+    font-size:12.5px;
+    min-height:18px;
+  }
+  #dropStatus.ok{color:var(--teal);}
+  #dropStatus.err{color:var(--clay);}
+
+  /* KPI grid */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:0.75rem;}
+  .kpi{
+    background:var(--paper-raised);
+    border:1px solid var(--rule);
+    border-radius:var(--radius);
+    padding:14px 16px;
+  }
+  .kpi .label{font-size:12px;color:var(--ink-soft);margin:0 0 6px;}
+  .kpi .value{
+    font-family:\'IBM Plex Mono\',monospace;
+    font-size:19px;
+    font-weight:500;
+    margin:0;
+  }
+  .kpi .value.pos{color:var(--teal);}
+  .kpi .value.neg{color:var(--clay);}
+
+  .chart-card{
+    background:var(--paper-raised);
+    border:1px solid var(--rule);
+    border-radius:var(--radius);
+    padding:1.25rem;
+    margin-bottom:1.5rem;
+  }
+  .legend-row{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px;font-size:12px;color:var(--ink-soft);}
+  .legend-row .dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:middle;}
+
+  /* History list */
+  .history-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px 14px;
+    border:1px solid var(--rule);
+    border-radius:var(--radius);
+    background:var(--paper-raised);
+    margin-bottom:8px;
+    cursor:pointer;
+    font-size:13px;
+  }
+  .history-item.selected{border-color:var(--ink);}
+  .plat-badge{
+    font-family:\'IBM Plex Mono\',monospace;
+    font-size:10.5px;
+    padding:2px 8px;
+    border-radius:999px;
+    margin-right:10px;
+    text-transform:uppercase;
+  }
+  .plat-badge.amazon{background:#E4EEF9;color:var(--amazon);}
+  .plat-badge.flipkart{background:#FBF1DC;color:var(--flipkart);}
+  .history-item .meta{color:var(--ink-soft);font-family:\'IBM Plex Mono\',monospace;font-size:12px;}
+  .history-item .del{
+    color:var(--ink-faint);
+    border:none;
+    background:none;
+    cursor:pointer;
+    font-size:16px;
+    padding:2px 6px;
+  }
+  .history-item .del:hover{color:var(--clay);}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{
+    text-align:left;
+    font-weight:500;
+    color:var(--ink-soft);
+    font-size:11.5px;
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+    padding:6px 8px;
+    border-bottom:1.5px solid var(--ink);
+  }
+  td{padding:8px 8px;border-bottom:1px solid var(--rule);font-family:\'IBM Plex Mono\',monospace;}
+  td.name{font-family:'Inter',sans-serif;}
+  tr:last-child td{border-bottom:none;}
+  .num{text-align:right;}
+  .refund-tag{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:999px;
+    font-size:11px;
+  }
+  .refund-tag.high{background:var(--clay-soft);color:var(--clay);}
+  .refund-tag.mid{background:var(--gold-soft);color:var(--gold);}
+  .refund-tag.low{background:var(--teal-soft);color:var(--teal);}
+  .pos-text{color:var(--teal);}
+  .neg-text{color:var(--clay);}
+  .cost-input{
+    width:72px;
+    text-align:right;
+    font-family:\'IBM Plex Mono\',monospace;
+    font-size:12.5px;
+    padding:4px 6px;
+    border:1px solid var(--rule);
+    border-radius:6px;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  .cost-input::placeholder{color:var(--ink-faint);}
+  .cost-input:focus{outline:2px solid var(--gold);outline-offset:1px;}
+  .cost-history-editor{border:1px solid var(--rule);background:var(--paper);border-radius:8px;padding:10px 12px;margin-top:8px;}
+  .cost-history-row{display:grid;grid-template-columns:140px 120px auto;gap:8px;align-items:center;margin-bottom:6px;}
+  .cost-history-row input{font-family:\'IBM Plex Mono\',monospace;font-size:12px;padding:5px 7px;border:1px solid var(--rule);border-radius:6px;background:var(--paper-raised);color:var(--ink);}
+  .group-input{
+    width:150px;
+    text-align:left;
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    padding:4px 8px;
+    border:1px solid var(--rule);
+    border-radius:6px;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  .group-input::placeholder{color:var(--ink-faint);font-style:italic;}
+  .group-input:focus{outline:2px solid var(--gold);outline-offset:1px;}
+  .link-btn{
+    font-family:'Inter',sans-serif;
+    font-size:11.5px;
+    color:var(--gold);
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:0;
+    text-decoration:underline;
+  }
+  .link-btn:hover{color:var(--clay);}
+  .combo-badge{
+    display:inline-block;
+    font-family:\'IBM Plex Mono\',monospace;
+    font-size:10px;
+    padding:1px 6px;
+    border-radius:999px;
+    background:var(--gold-soft);
+    color:var(--gold);
+    margin-left:6px;
+    text-transform:uppercase;
+    vertical-align:middle;
+  }
+
+  .empty{
+    text-align:center;
+    padding:3rem 1rem;
+    color:var(--ink-faint);
+    font-size:14px;
+  }
+  select{
+    font-family:\'IBM Plex Mono\',monospace;
+    font-size:12.5px;
+    padding:6px 10px;
+    border-radius:6px;
+    border:1px solid var(--rule);
+    background:var(--paper-raised);
+    color:var(--ink);
+  }
+  .row-between{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px;}
+  .note{font-size:12px;color:var(--ink-faint);margin-top:8px;}
+  footer{text-align:center;color:var(--ink-faint);font-size:11.5px;margin-top:3rem;}
+
+  @media (max-width:640px){
+    .kpis{grid-template-columns:repeat(2,1fr);}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <h1>Settlement ledger V26</h1>
+      <p class="subtitle">Amazon &amp; Flipkart profit/loss, calculated on each platform's own terms</p>
+    </div>
+    <span class="stamp" id="reportCount">0 reports on file</span>
+  </header>
+
+  <div class="section">
+    <div id="dropzone">
+      <span class="icon">&#8615;</span>
+      <p><strong>Drop a settlement report here</strong>, or click to browse</p>
+      <p style="margin-top:4px;">Amazon transaction CSV &middot; Flipkart P&amp;L .xlsx</p>
+      <div id="dropStatus"></div>
+      <div id="savedReportActions" style="display:none;margin-top:8px;">
+        <button type="button" id="removeSelectedReport" class="link-btn"
+          style="color:var(--clay);font-size:12px;">Delete saved report</button>
+      </div>
+    </div>
+    <input type="file" id="fileInput" accept=".csv,.xlsx,.xls">
+    <div style="display:flex;align-items:center;gap:16px;margin-top:10px;">
+      <button type="button" class="link-btn" id="exportBackupBtn">Download backup (.json)</button>
+      <button type="button" class="link-btn" id="importBackupBtn">Restore from backup</button>
+      <input type="file" id="importFileInput" accept=".json" style="display:none;">
+      <span id="backupStatus" class="note" style="margin:0;"></span>
+    </div>
+  </div>
+
+  <div id="mainArea"></div>
+
+  <footer>Numbers are computed locally from the files you upload &middot; report data stays in this browser</footer>
+</div>
+
+<script>
+(function(){
+
+// ---------- utilities ----------
+function fmtINR(n){
+  if(n===null||n===undefined||isNaN(n)) return '\u2014';
+  var sign = n < 0 ? '-' : '';
+  return sign + '\u20B9' + Math.round(Math.abs(n)).toLocaleString('en-IN');
+}
+function fmtNum(n){ return Math.round(n).toLocaleString('en-IN'); }
+function pad2(n){ return String(n).padStart(2,'0'); }
+function toISO(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function isValidISODate(s){
+  if(typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  var d = new Date(s+'T00:00:00');
+  return !isNaN(d.getTime()) && toISO(d) === s;
+}
+function safeISOFromDateValue(v){
+  if(v instanceof Date && !isNaN(v.getTime())) return toISO(v);
+  if(v===null || v===undefined) return null;
+  var str=String(v).trim();
+  if(!str) return null;
+  if(isValidISODate(str)) return str;
+  var m=str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m){
+    var a=parseInt(m[1],10), b=parseInt(m[2],10), y=parseInt(m[3],10);
+    // Amazon exports are normally DD/MM/YYYY. If the first part cannot be a month,
+    // the value is unambiguously MM/DD/YYYY; otherwise prefer DD/MM/YYYY.
+    var day=a, month=b;
+    if(a<=12 && b>12){ day=b; month=a; }
+    var d=new Date(y,month-1,day);
+    if(d.getFullYear()===y && d.getMonth()===month-1 && d.getDate()===day) return toISO(d);
+  }
+  var parsed=new Date(str);
+  return !isNaN(parsed.getTime()) ? toISO(parsed) : null;
+}
+function fmtLabel(iso){
+  var safe=safeISOFromDateValue(iso);
+  if(!safe) return 'Unknown date';
+  var d = new Date(safe+'T00:00:00');
+  var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return months[d.getMonth()]+' '+d.getDate();
+}
+function parseAmazonDate(str){
+  var iso=safeISOFromDateValue(str);
+  if(!iso) return new Date(NaN);
+  return new Date(iso+'T00:00:00');
+}
+function findRow(rows, label){
+  for(var i=0;i<rows.length;i++){
+    if(rows[i] && String(rows[i][0]||'').trim() === label) return rows[i];
+  }
+  return null;
+}
+function num(v){
+  var n = parseFloat(v);
+  return isNaN(n) ? 0 : n;
+}
+function platLabel(pf){ return pf === 'amazon' ? 'Amazon' : 'Flipkart'; }
+
+// ---------- browser storage (IndexedDB) ----------
+// The original Claude Artifact used window.storage, which only exists inside
+// the artifact environment. This hosted version uses IndexedDB instead, so
+// the app works on a normal website without a backend or database server.
+var DB_NAME = 'settlement-ledger';
+var DB_VERSION = 1;
+var STORE_NAME = 'kv';
+
+function openDB(){
+  return new Promise(function(resolve, reject){
+    if(!window.indexedDB){ reject(new Error('IndexedDB is not supported by this browser.')); return; }
+    var req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = function(){
+      var db = req.result;
+      if(!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
+    };
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error || new Error('Could not open local database.')); };
+  });
+}
+async function dbGet(key){
+  var db = await openDB();
+  return new Promise(function(resolve, reject){
+    var tx = db.transaction(STORE_NAME, 'readonly');
+    var req = tx.objectStore(STORE_NAME).get(key);
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error); };
+  }).finally(function(){ db.close(); });
+}
+async function dbSet(key, value){
+  var db = await openDB();
+  return new Promise(function(resolve, reject){
+    var tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(value, key);
+    tx.oncomplete = function(){ resolve(); };
+    tx.onerror = function(){ reject(tx.error); };
+  }).finally(function(){ db.close(); });
+}
+async function dbDelete(key){
+  var db = await openDB();
+  return new Promise(function(resolve, reject){
+    var tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(key);
+    tx.oncomplete = function(){ resolve(); };
+    tx.onerror = function(){ reject(tx.error); };
+  }).finally(function(){ db.close(); });
+}
+
+var INDEX_KEY = 'report_index';
+
+async function loadIndex(){
+  try{
+    var r = await dbGet(INDEX_KEY);
+    return r ? JSON.parse(r) : [];
+  }catch(e){ return []; }
+}
+async function saveIndex(idx){
+  await dbSet(INDEX_KEY, JSON.stringify(idx));
+}
+async function saveReport(report, replaceKey){
+  var key = replaceKey || ('report:' + report.platform + ':' + report.periodStart + '_' + report.periodEnd + '_' + Date.now());
+  await dbSet(key, JSON.stringify(report));
+  var idx = await loadIndex();
+  if(replaceKey){ idx = idx.filter(function(e){ return e.key !== replaceKey; }); }
+  idx.push({ key:key, platform:report.platform, periodStart:report.periodStart, periodEnd:report.periodEnd, net:report.totals.net, uploadedAt:report.uploadedAt });
+  idx.sort(function(a,b){ return a.periodStart.localeCompare(b.periodStart) || a.uploadedAt.localeCompare(b.uploadedAt); });
+  await saveIndex(idx);
+  return key;
+}
+async function loadReport(key){
+  try{
+    var r = await dbGet(key);
+    return r ? JSON.parse(r) : null;
+  }catch(e){ return null; }
+}
+async function deleteReport(key){
+  try{ await dbDelete(key); }catch(e){}
+  var idx = await loadIndex();
+  idx = idx.filter(function(e){ return e.key !== key; });
+  await saveIndex(idx);
+}
+
+var COST_KEY = 'cost_catalog';
+var OTHER_CHARGES_KEY = 'other_charges_catalog';
+async function loadCostCatalog(){
+  try{
+    var r = await dbGet(COST_KEY);
+    return r ? JSON.parse(r) : {};
+  }catch(e){ return {}; }
+}
+async function saveCostCatalog(catalog){
+  try{ await dbSet(COST_KEY, JSON.stringify(catalog)); }catch(e){}
+}
+async function loadOtherCharges(){
+  try{ var r = await dbGet(OTHER_CHARGES_KEY); return r ? JSON.parse(r) : {}; }catch(e){ return {}; }
+}
+async function saveOtherCharges(charges){
+  try{ await dbSet(OTHER_CHARGES_KEY, JSON.stringify(charges)); }catch(e){}
+}
+function getCostAtDate(name,date){
+  var cost=parseFloat(state.costCatalog[name]);
+  return isFinite(cost) && cost>=0 ? cost : null;
+}
+function getOtherCharge(name){
+  var v=parseFloat(state.otherChargesCatalog[name]);
+  return isFinite(v) && v>=0 ? v : 0;
+}
+function getEffectiveCost(name,date,visited){
+  visited=visited||{};
+  if(visited[name]) return null;
+  visited[name]=true;
+  var comps=state.combos[name];
+  if(comps && comps.length){
+    var total=0;
+    for(var i=0;i<comps.length;i++){
+      var cc=getEffectiveCost(comps[i].component,date,Object.assign({},visited));
+      if(cc===null) return null;
+      total += cc * (parseFloat(comps[i].qty)||0);
+    }
+    return total;
+  }
+  var base=getCostAtDate(name,date);
+  if(base===null) return null;
+  return base;
+}
+function getLatestCost(name){ return getCostAtDate(name); }
+
+var GROUPS_KEY = 'product_groups';
+function rawKey(platform, name){ return platform + '::' + name; }
+function groupNameFor(rk, fallbackName){
+  var g = state.productGroups[rk];
+  return (g && g.trim()) ? g.trim() : fallbackName;
+}
+async function loadGroups(){
+  try{
+    var r = await dbGet(GROUPS_KEY);
+    return r ? JSON.parse(r) : {};
+  }catch(e){ return {}; }
+}
+async function saveGroups(groups){
+  try{ await dbSet(GROUPS_KEY, JSON.stringify(groups)); }catch(e){}
+}
+
+var PENDING_GROUPS_KEY = 'pending_group_rules';
+async function loadPendingGroups(){
+  try{
+    var r = await dbGet(PENDING_GROUPS_KEY);
+    return r ? JSON.parse(r) : [];
+  }catch(e){ return []; }
+}
+async function savePendingGroups(rules){
+  try{ await dbSet(PENDING_GROUPS_KEY, JSON.stringify(rules)); }catch(e){}
+}
+
+// Parses lines like "raw name 1, raw name 2 => Group Name" (the "=> Group Name"
+// part is optional; if omitted, the first raw name on the line becomes the
+// group name). Matches each raw name case-insensitively against every listing
+// seen across every cached report, on either platform. Names that don't match
+// anything yet are kept as pending rules and applied automatically the moment
+// a future upload contains that listing (see reconcilePendingGroups).
+function findRawKeyByName(rawName){
+  var target = rawName.trim().toLowerCase();
+  var found = null;
+  Object.keys(state.cache).forEach(function(k){
+    if(found) return;
+    var rep = state.cache[k];
+    if(!rep) return;
+    rep.products.forEach(function(p){
+      if(found) return;
+      if(p.name.trim().toLowerCase() === target){
+        found = rawKey(rep.platform, p.name);
+      }
+    });
+  });
+  return found;
+}
+function applyBulkGroups(text){
+  var matched = [], unmatched = [];
+  text.split('\n').forEach(function(line){
+    line = line.trim();
+    if(!line) return;
+    var parts = line.split('=>');
+    var namesPart = parts[0];
+    var explicitGroup = parts[1] ? parts[1].trim() : null;
+    var names = namesPart.split(',').map(function(n){ return n.trim(); }).filter(Boolean);
+    if(!names.length) return;
+    var groupName = explicitGroup || names[0];
+    names.forEach(function(n){
+      var rk = findRawKeyByName(n);
+      if(rk){
+        state.productGroups[rk] = groupName;
+        matched.push(n + ' \u2192 ' + groupName);
+      } else {
+        var existing = state.pendingGroupRules.filter(function(r){ return r.name.toLowerCase() !== n.toLowerCase(); });
+        existing.push({ name:n, group:groupName });
+        state.pendingGroupRules = existing;
+        unmatched.push(n);
+      }
+    });
+  });
+  return { matched:matched, unmatched:unmatched };
+}
+// Runs after every refresh: checks whether any pending rule's listing name has
+// now appeared in the cached data (e.g. from a newly uploaded report) and, if
+// so, applies the grouping and removes it from the pending list.
+function reconcilePendingGroups(){
+  if(!state.pendingGroupRules.length) return { applied:[] };
+  var stillPending = [], applied = [];
+  state.pendingGroupRules.forEach(function(rule){
+    var rk = findRawKeyByName(rule.name);
+    if(rk){
+      state.productGroups[rk] = rule.group;
+      applied.push(rule.name + ' \u2192 ' + rule.group);
+    } else {
+      stillPending.push(rule);
+    }
+  });
+  state.pendingGroupRules = stillPending;
+  return { applied:applied };
+}
+
+var PARSER_VERSION = 26;
+var RAW_AMAZON_KEY = 'raw_amazon_report';
+var ORDER_COMPOSITIONS_KEY = 'order_compositions';
+async function loadOrderCompositions(){
+  try{ var r = await dbGet(ORDER_COMPOSITIONS_KEY); return r ? JSON.parse(r) : {}; }catch(e){ return {}; }
+}
+async function saveOrderCompositions(comps){
+  try{ await dbSet(ORDER_COMPOSITIONS_KEY, JSON.stringify(comps)); }catch(e){}
+}
+function orderCompositionKey(platform, orderId){ return platform + '::' + orderId; }
+var COMBOS_KEY = 'combo_definitions';
+async function loadCombos(){
+  try{
+    var r = await dbGet(COMBOS_KEY);
+    return r ? JSON.parse(r) : {};
+  }catch(e){ return {}; }
+}
+async function saveCombos(combos){
+  try{ await dbSet(COMBOS_KEY, JSON.stringify(combos)); }catch(e){}
+}
+// A combo's cost/unit is derived from its components rather than entered directly.
+// Cycle guard included as defense-in-depth even though the editor UI only offers
+// non-combo products as valid components.
+function getEffectiveCost(name, date, visited){
+  visited = visited || {};
+  if(visited[name]) return null;
+  visited[name] = true;
+  var comps = state.combos[name];
+  if(!comps || !comps.length){
+    var base=getCostAtDate(name, date || toISO(new Date()));
+    if(base===null) return null;
+    return base;
+  }
+  var total = 0;
+  for(var i=0;i<comps.length;i++){
+    var cc = getEffectiveCost(comps[i].component, date, Object.assign({}, visited));
+    if(cc === null) return null;
+    total += cc * (parseFloat(comps[i].qty) || 0);
+  }
+  return total;
+}
+function escAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+
+// ---------- Amazon parser ----------
+// Amazon settlement rows aren't only "Order Payment" — they also carry Refund,
+// Fulfillment Fee Refund, Inventory Reimbursement and Other rows. For P/L we use
+// ONLY Deferred -> Order Payment -> Total (INR). Product charges are kept
+// separately because they are the best available signal for detecting multi-item
+// orders: Amazon can show only one product name on a combo settlement row while
+// the Total product charges equals the sum of the actual items in the order.
+//
+// Important: this is a suggestion engine, not a blind guess. Exact/near-exact
+// matches can be auto-resolved; ambiguous orders remain visible for confirmation.
+function inferAmazonPriceProfiles(orderMap){
+  // Learn a representative SINGLE-UNIT product-charge price from orders where
+  // Amazon showed only one product. High-value outliers are often quantity > 1,
+  // so exclude observations that are much larger than the normal price before
+  // building the profile.
+  var byProduct={};
+  Object.keys(orderMap).forEach(function(oid){
+    var o=orderMap[oid];
+    var names=Object.keys(o.products||{});
+    if(names.length!==1 || o.productCharges<=0) return;
+    var name=names[0];
+    if(!byProduct[name]) byProduct[name]=[];
+    byProduct[name].push(o.productCharges);
+  });
+
+  var profiles={};
+  Object.keys(byProduct).forEach(function(name){
+    var vals=byProduct[name].filter(function(v){return isFinite(v)&&v>0;}).sort(function(a,b){return a-b;});
+    if(!vals.length) return;
+    var med=vals[Math.floor(vals.length/2)];
+    // Ignore obvious multi-quantity observations when learning the unit price.
+    var singles=vals.filter(function(v){return v<=med*1.45;});
+    if(!singles.length) singles=vals.slice();
+
+    // Keep up to three representative price points. This is useful when the
+    // same SKU has a few legitimate promotional prices; it also lets a mixed
+    // order match the exact prices observed elsewhere in the report.
+    var clusters=[];
+    singles.forEach(function(v){
+      var c=clusters.length?clusters[clusters.length-1]:null;
+      if(c && Math.abs(v-c.last)<=2.0){ c.values.push(v); c.last=v; }
+      else clusters.push({values:[v],last:v});
+    });
+    // The overall median is the primary unit-price estimate. Cluster medians
+    // are retained only as alternatives for promotional-price matching.
+    var profile=[];
+    var sortedSingles=singles.slice().sort(function(a,b){return a-b;});
+    var primary=sortedSingles[Math.floor(sortedSingles.length/2)];
+    profile.push({price:primary,count:sortedSingles.length});
+    clusters.sort(function(a,b){return b.values.length-a.values.length || a.values[0]-b.values[0];});
+    clusters.slice(0,3).forEach(function(c){
+      var a=c.values.slice().sort(function(x,y){return x-y;});
+      var price=a[Math.floor(a.length/2)];
+      if(!profile.some(function(x){return Math.abs(x.price-price)<0.01;})) profile.push({price:price,count:a.length});
+    });
+    profiles[name]=profile.slice(0,3);
+  });
+  return profiles;
+}
+function inferAmazonOrderComposition(order, priceProfiles){
+  if(!order || !order.productCharges || order.productCharges<=0) return null;
+  var target=order.productCharges;
+  var observed=Object.keys(order.products||{});
+  var names=Object.keys(priceProfiles).filter(function(n){
+    return priceProfiles[n] && priceProfiles[n].length && priceProfiles[n][0].price>0;
+  });
+  if(!names.length) return null;
+
+  // Small catalogue: enumerate quantities 0..10 rather than beam-pruning.
+  // Beam pruning can discard an exact mixed-product match too early.
+  var candidates=[];
+  function pushCandidate(parts){
+    if(!parts.length) return;
+    var sum=parts.reduce(function(a,c){return a+c.qty*c.price;},0);
+    var units=parts.reduce(function(a,c){return a+c.qty;},0);
+    var distinct=parts.length;
+    if(units<1 || units>10) return;
+    var error=Math.abs(sum-target)/target;
+    // Permit reasonable bundle/quantity discounts.
+    if(error>0.08) return;
+    var hasHint=parts.some(function(c){return observed.indexOf(c.product)>=0;});
+    candidates.push({components:parts.map(function(c){return {product:c.product,qty:c.qty};}),matchedAmount:sum,error:error,hasHint:hasHint,units:units,distinct:distinct});
+  }
+  function walkProduct(idx, parts, units){
+    if(idx>=names.length){ pushCandidate(parts); return; }
+    var name=names[idx], prices=priceProfiles[name].slice(0,3), seen={};
+    walkProduct(idx+1,parts,units); // q=0
+    prices.forEach(function(pr){
+      var pk=Math.round(pr.price*100); if(seen[pk]) return; seen[pk]=true;
+      for(var q=1;q<=10-units;q++){
+        parts.push({product:name,qty:q,price:pr.price});
+        walkProduct(idx+1,parts,units+q);
+        parts.pop();
+      }
+    });
+  }
+  walkProduct(0,[],0);
+  candidates.sort(function(a,b){
+    return a.error-b.error || (a.hasHint?0:1)-(b.hasHint?0:1) || a.distinct-b.distinct || a.units-b.units;
+  });
+  if(!candidates.length) return null;
+  var best=candidates[0];
+  var repeatedHint=best.distinct===1 && best.units>1 && best.hasHint && best.error<=0.08;
+  // Price matching is a REVIEW SUGGESTION only. It must never change P/L by itself.
+  // The source of truth for a multi-product order is a saved Order ID composition
+  // or an explicitly defined reusable product combo.
+  best.autoApply=false;
+  best.isLikelyMulti=(best.units>1 || best.distinct>1);
+  best.repeatedHint=repeatedHint;
+  best.confidence=best.error<=0.005?'high':(best.error<=0.04?'medium':'low');
+  return best;
+}
+
+function parseAmazonCSV(text){
+  var parsed = Papa.parse(text, { header:true, skipEmptyLines:true });
+  var rows = parsed.data;
+  var daily = {}, products = {}, dailyProducts = {}, orderMap = {};
+  var byType = {};
+  var fees=0, net=0;
+  var minD=null, maxD=null;
+  var deferredCount=0, deferredTotal=0;
+
+  rows.forEach(function(r){
+    var dateStr = r['Date'];
+    if(!dateStr) return;
+    var d = parseAmazonDate(dateStr);
+    var iso = toISO(d);
+    if(!minD || d < minD) minD = d;
+    if(!maxD || d > maxD) maxD = d;
+
+    var status = (r['Transaction Status']||'').trim().toLowerCase();
+    var charges = num(r['Total product charges']);
+    var feeVal = num(r['Amazon fees']);
+    var totalInr = num(r['Total (INR)']);
+    var type = (r['Transaction type']||'Other').trim() || 'Other';
+    var product = (r['Product Details']||'Unknown').trim();
+    var orderId = (r['Order ID']||'').trim();
+
+    // P/L basis for Amazon: ONLY Deferred Order Payment rows.
+    // Returns, refunds, fee rows, reimbursements and other transaction types
+    // are intentionally excluded. The user calculates product profit from
+    // the resulting Order Payment amount and the product cost settings.
+    if(status !== 'deferred' || type !== 'Order Payment') return;
+
+    deferredCount += 1;
+    deferredTotal += totalInr;
+    byType[type] = (byType[type]||0) + totalInr;
+
+    if(!daily[iso]) daily[iso] = { date:iso, gross:0, fees:0, refunds:0, net:0, byType:{} };
+    if(!dailyProducts[iso]) dailyProducts[iso] = {};
+    daily[iso].gross += charges;
+    daily[iso].net += totalInr;
+    daily[iso].byType[type] = (daily[iso].byType[type]||0) + totalInr;
+    fees += feeVal;
+    net += totalInr;
+
+    if(!products[product]) products[product] = { name:product, grossValue:0, refundValue:0, net:0, grossUnits:0, refundUnits:0 };
+    if(!dailyProducts[iso][product]) dailyProducts[iso][product] = { name:product, grossValue:0, refundValue:0, net:0, grossUnits:0, refundUnits:0 };
+
+    products[product].grossValue += totalInr;
+    products[product].net += totalInr;
+    products[product].grossUnits += 1;
+    dailyProducts[iso][product].grossValue += totalInr;
+    dailyProducts[iso][product].net += totalInr;
+    dailyProducts[iso][product].grossUnits += 1;
+
+    // Keep order-level detail for possible multi-product orders. This is
+    // only a review/assignment aid; we do not infer a combo automatically.
+    if(orderId){
+      if(!orderMap[orderId]) orderMap[orderId] = { id:orderId, date:iso, productCharges:0, net:0, fees:0, products:{} };
+      // IMPORTANT: combo detection must use Total product charges, not Total (INR).
+      // Total (INR) is the user's P/L amount after Amazon deductions.
+      orderMap[orderId].productCharges += charges;
+      orderMap[orderId].net += totalInr;
+      orderMap[orderId].fees += feeVal;
+      if(!orderMap[orderId].products[product]) orderMap[orderId].products[product] = { name:product, qty:0, charges:0, net:0, lineCount:0 };
+      orderMap[orderId].products[product].lineCount += 1;
+      orderMap[orderId].products[product].charges += charges;
+      orderMap[orderId].products[product].net += totalInr;
+    }
+  });
+
+  var dailyArr = Object.keys(daily).sort().map(function(k){ return daily[k]; });
+  Object.keys(dailyProducts).forEach(function(day){
+    Object.keys(dailyProducts[day]).forEach(function(name){
+      var p = dailyProducts[day][name];
+      p.refundRate = 0;
+      p.netUnits = p.grossUnits;
+    });
+  });
+
+  var productArr = Object.keys(products).map(function(k){
+    var p = products[k];
+    p.refundRate = 0;
+    p.rateBasis = 'deferred order payment';
+    p.netUnits = p.grossUnits;
+    return p;
+  }).sort(function(a,b){ return b.grossValue - a.grossValue; });
+
+  // Infer likely physical order contents from the order's Total product charges.
+  // Amazon may show only one listing name for a multi-product order. We learn
+  // representative single-item selling prices from the same report, then match
+  // any order against combinations of those products and quantities.
+  var priceProfiles=inferAmazonPriceProfiles(orderMap);
+  Object.keys(orderMap).forEach(function(k){
+    var o=orderMap[k];
+    Object.keys(o.products||{}).forEach(function(n){
+      // Multiple settlement rows for the same product are not automatically
+      // multiple physical units. Quantity is inferred from the order amount.
+      o.products[n].qty=1;
+    });
+    o.inference=inferAmazonOrderComposition(o,priceProfiles);
+  });
+
+  return {
+    platform:'amazon',
+    parserVersion:PARSER_VERSION,
+    periodStart: minD ? toISO(minD) : null,
+    periodEnd: maxD ? toISO(maxD) : null,
+    uploadedAt: new Date().toISOString(),
+    totals: {
+      orderRevenue: net,
+      refunds: 0,
+      reimbursements: 0,
+      fees: 0,
+      byType: byType,
+      net: net,
+      deferredCount: deferredCount,
+      deferredTotal: deferredTotal
+    },
+    daily: dailyArr,
+    dailyProducts: dailyProducts,
+    products: productArr,
+    orders: Object.keys(orderMap).map(function(k){ var o=orderMap[k]; o.products=Object.keys(o.products).map(function(n){ return o.products[n]; }); return o; }).sort(function(a,b){ return a.date.localeCompare(b.date) || a.id.localeCompare(b.id); })
+  };
+}
+
+// ---------- Flipkart parser ----------
+// Flipkart's own Overall Summary sheet already separates Gross Sales, RTO,
+// RVP (customer returns), Cancellations, Total Expenses, Rewards & Other
+// Benefits and Input Tax Credits — pulled directly rather than re-derived,
+// since Flipkart's own categorisation is the accurate source of truth.
+function parseFlipkartXLSX(arrayBuffer){
+  var wb = XLSX.read(arrayBuffer, { type:'array', cellDates:true });
+  var summarySheet = wb.Sheets['Overall Summary'];
+  var ordersSheet = wb.Sheets['Orders P&L'];
+  var skuSheet = wb.Sheets['SKU-level P&L'];
+  if(!summarySheet || !ordersSheet || !skuSheet) throw new Error('MISSING_SHEETS');
+
+  function normHeader(v){ return String(v==null?'':v).trim().toLowerCase().replace(/\s+/g,' '); }
+  function findHeaderRow(rows, required){
+    for(var r=0;r<Math.min(rows.length,50);r++){
+      var row=rows[r]||[], normalized=row.map(normHeader);
+      var ok=required.every(function(name){ return normalized.some(function(v){ return v===normHeader(name) || v.indexOf(normHeader(name))>=0; }); });
+      if(ok) return r;
+    }
+    return -1;
+  }
+  function colIndex(header, name){
+    var target=normHeader(name);
+    for(var i=0;i<header.length;i++){
+      var v=normHeader(header[i]);
+      if(v===target || v.indexOf(target)>=0) return i;
+    }
+    return -1;
+  }
+  function parseFKDate(v){
+    if(v instanceof Date && !isNaN(v.getTime())) return toISO(v);
+    if(typeof v==='number' && isFinite(v)){
+      var d=new Date(Date.UTC(1899,11,30)+v*86400000);
+      if(!isNaN(d.getTime())) return toISO(d);
+    }
+    var raw=String(v==null?'':v).trim();
+    if(!raw) return null;
+    var m=raw.match(/^(\d{1,2})[\\\/-](\d{1,2})[\\\/-](\d{4})(?:\s|$)/);
+    if(m){
+      var d1=new Date(Date.UTC(+m[3],+m[2]-1,+m[1]));
+      if(d1.getUTCFullYear()===+m[3] && d1.getUTCMonth()===+m[2]-1 && d1.getUTCDate()===+m[1]) return toISO(d1);
+    }
+    var m2=raw.match(/^(\d{4})[\\\/-](\d{1,2})[\\\/-](\d{1,2})/);
+    if(m2){
+      var d2=new Date(Date.UTC(+m2[1],+m2[2]-1,+m2[3]));
+      if(!isNaN(d2.getTime())) return toISO(d2);
+    }
+    var parsed=new Date(raw);
+    return isNaN(parsed.getTime()) ? null : toISO(parsed);
+  }
+  function normalizePeriodText(v){
+    if(v==null || v==='') return null;
+    var s=String(v).trim();
+    var d=parseFKDate(s);
+    if(d) return d;
+    return s;
+  }
+
+  var summaryRows=XLSX.utils.sheet_to_json(summarySheet,{header:1});
+  var periodRow=findRow(summaryRows,'Orders Recieved During:');
+  var periodStart=null,periodEnd=null;
+  if(periodRow && periodRow[1]){
+    var parts=String(periodRow[1]).split(/\s+to\s+/i);
+    periodStart=normalizePeriodText(parts[0]);
+    periodEnd=normalizePeriodText(parts[1]||parts[0]);
+  }
+  var grossRow=findRow(summaryRows,'Gross Sales');
+  var returnsRow=findRow(summaryRows,'Returns and Cancellations');
+  var rtoRow=findRow(summaryRows,'\u2022 RTO (Logistics Return)');
+  var rvpRow=findRow(summaryRows,'\u2022 RVP (Customer Return)');
+  var cancelRow=findRow(summaryRows,'\u2022 Cancelled');
+  var expensesRow=findRow(summaryRows,'Total Expenses');
+  var rewardsRow=findRow(summaryRows,'Rewards & Other Benefits');
+  var itcRow=findRow(summaryRows,'Input Tax Credits');
+  var earningsRow=findRow(summaryRows,'Earnings on Platform');
+  var grossSales=grossRow?num(grossRow[1]):0;
+  var returns=returnsRow?Math.abs(num(returnsRow[1])):0;
+  var rto=rtoRow?Math.abs(num(rtoRow[1])):0;
+  var rvp=rvpRow?Math.abs(num(rvpRow[1])):0;
+  var cancelled=cancelRow?Math.abs(num(cancelRow[1])):0;
+  var expenses=expensesRow?Math.abs(num(expensesRow[1])):0;
+  var rewards=rewardsRow?num(rewardsRow[1]):0;
+  var itc=itcRow?num(itcRow[1]):0;
+  var net=earningsRow?num(earningsRow[1]):0;
+
+  // Orders P&L is the source for the daily chart. Detect the real header row
+  // without requiring SKU ID: some Flipkart exports place SKU/date columns in
+  // slightly different positions or use extra title rows above the table.
+  var ordersJson=XLSX.utils.sheet_to_json(ordersSheet,{header:1});
+  var orderHeaderRow=findHeaderRow(ordersJson,['Order Date']);
+  var header=orderHeaderRow>=0?ordersJson[orderHeaderRow]:[];
+  var dateIdx=colIndex(header,'Order Date');
+  var statusIdx=colIndex(header,'Order Status');
+  var netEarnIdx=colIndex(header,'Net Earnings (INR)');
+  var orderValIdx=colIndex(header,'Order Item Value');
+  var returnedUnitsIdx=colIndex(header,'Returned & Cancelled Units');
+  var skuOrderIdx=colIndex(header,'SKU ID');
+  var expensesOrderIdx=colIndex(header,'Total Expenses');
+  var rewardsOrderIdx=colIndex(header,'Rewards & Other Benefits');
+  var itcOrderIdx=colIndex(header,'Input Tax Credits');
+  var dailyProducts={};
+  var daily={};
+  if(orderHeaderRow>=0 && dateIdx>=0){
+    for(var i=orderHeaderRow+1;i<ordersJson.length;i++){
+      var row=ordersJson[i]; if(!row) continue;
+      var iso=parseFKDate(row[dateIdx]); if(!iso) continue;
+      if(!daily[iso]) daily[iso]={date:iso,gross:0,fees:0,refunds:0,net:0,expenses:0,rewards:0,itc:0};
+      var orderVal=orderValIdx>=0?num(row[orderValIdx]):0;
+      var netEarn=netEarnIdx>=0?num(row[netEarnIdx]):0;
+      var returnedUnits=returnedUnitsIdx>=0?num(row[returnedUnitsIdx]):0;
+      var status=statusIdx>=0?String(row[statusIdx]||'').toUpperCase():'';
+      var isReturn=returnedUnits>0 || /CANCEL|RTO|RVP|RETURN/.test(status);
+      daily[iso].net+=netEarn;
+      if(expensesOrderIdx>=0) daily[iso].expenses+=Math.abs(num(row[expensesOrderIdx]));
+      if(rewardsOrderIdx>=0) daily[iso].rewards+=num(row[rewardsOrderIdx]);
+      if(itcOrderIdx>=0) daily[iso].itc+=num(row[itcOrderIdx]);
+      if(skuOrderIdx>=0){
+        var skuName=String(row[skuOrderIdx]||'').trim();
+        if(skuName){
+          if(!dailyProducts[iso]) dailyProducts[iso]={};
+          if(!dailyProducts[iso][skuName]) dailyProducts[iso][skuName]={name:skuName,grossValue:0,refundValue:0,net:0,grossUnits:0,netUnits:0,returnedUnits:0};
+          dailyProducts[iso][skuName].net+=netEarn;
+          if(isReturn){ dailyProducts[iso][skuName].refundValue+=Math.abs(orderVal); dailyProducts[iso][skuName].returnedUnits+=returnedUnits; }
+          else { dailyProducts[iso][skuName].grossValue+=orderVal; dailyProducts[iso][skuName].grossUnits+=1; }
+          dailyProducts[iso][skuName].netUnits=Math.max(0,dailyProducts[iso][skuName].grossUnits-dailyProducts[iso][skuName].returnedUnits);
+        }
+      }
+      if(isReturn) daily[iso].refunds+=Math.abs(orderVal); else daily[iso].gross+=orderVal;
+    }
+  }
+  var dailyArr=Object.keys(daily).sort().map(function(k){return daily[k];});
+
+  // SKU-level P&L is authoritative for product totals and costed units.
+  var skuJson=XLSX.utils.sheet_to_json(skuSheet,{header:1});
+  var skuHeaderRow=findHeaderRow(skuJson,['SKU ID','Net Units (#)']);
+  var skuHeader=skuHeaderRow>=0?skuJson[skuHeaderRow]:[];
+  var idIdx=colIndex(skuHeader,'SKU ID');
+  var grossUnitsIdx=colIndex(skuHeader,'Gross Units (#)');
+  var netUnitsIdx=colIndex(skuHeader,'Net Units (#)');
+  var retUnitsIdx=colIndex(skuHeader,'Returned & Cancelled Units');
+  var orderItemValIdx=colIndex(skuHeader,'Sum of Order Item Value');
+  var netEarnSkuIdx=colIndex(skuHeader,'Net Earnings (INR)');
+  var products=[];
+  if(skuHeaderRow>=0 && idIdx>=0){
+    for(var j=skuHeaderRow+1;j<skuJson.length;j++){
+      var srow=skuJson[j]; if(!srow || srow[idIdx]===undefined || String(srow[idIdx]).trim()==='') continue;
+      var grossUnits=grossUnitsIdx>=0?num(srow[grossUnitsIdx]):0;
+      var netUnitsVal=netUnitsIdx>=0?num(srow[netUnitsIdx]):grossUnits;
+      var retUnits=retUnitsIdx>=0?num(srow[retUnitsIdx]):0;
+      var grossValue=orderItemValIdx>=0?num(srow[orderItemValIdx]):0;
+      var netVal=netEarnSkuIdx>=0?num(srow[netEarnSkuIdx]):0;
+      products.push({name:String(srow[idIdx]).trim(),grossValue:grossValue,refundValue:null,net:netVal,grossUnits:grossUnits,netUnits:netUnitsVal,returnedUnits:retUnits,refundRate:grossUnits>0?(retUnits/grossUnits*100):0,rateBasis:'units'});
+    }
+  }
+  products.sort(function(a,b){return b.grossValue-a.grossValue;});
+
+  // If daily order data is unavailable, keep SKU products for product P/L but
+  // do not fabricate daily values. The UI will clearly state that the report
+  // has no usable order-date rows for a day-by-day chart.
+  if(!Object.keys(dailyProducts).length) dailyProducts=null;
+  if(!periodStart || !isValidISODate(periodStart)){
+    var isos=dailyArr.map(function(d){return d.date;}).filter(isValidISODate).sort();
+    periodStart=isos[0]||null; periodEnd=isos[isos.length-1]||periodStart;
+  }
+  return {
+    platform:'flipkart',parserVersion:PARSER_VERSION,periodStart:periodStart,periodEnd:periodEnd,
+    uploadedAt:new Date().toISOString(),
+    totals:{grossSales:grossSales,returns:returns,rto:rto,rvp:rvp,cancelled:cancelled,expenses:expenses,rewards:rewards,itc:itc,net:net},
+    daily:dailyArr,dailyProducts:dailyProducts,products:products
+  };
+}
+
+// ---------- app state ----------
+var state = { history:[], cache:{}, costCatalog:{}, otherChargesCatalog:{}, productGroups:{}, pendingGroupRules:[], combos:{}, orderCompositions:{}, editingCombo:null, comboDraft:null, comboSuggestions:null, manageTab:'orders', showManage:false, bulkGroupResult:null, reconciledNote:null, selected:{ amazon:null, flipkart:null }, filter:{ mode:'all', month:null, year:null, from:null, to:null }, editingOrder:null, orderDraft:null, orderOtherCharge:0, orderBenchmarkProfit:'', editingCost:null, costDraft:null };
+
+// ---------- date filter ----------
+function computeRange(){
+  var f = state.filter;
+  if(f.mode === 'month' && f.month){
+    var y = parseInt(f.month.slice(0,4),10), m = parseInt(f.month.slice(5,7),10);
+    var lastDay = new Date(y, m, 0);
+    return { from: f.month + '-01', to: toISO(lastDay) };
+  }
+  if(f.mode === 'year' && f.year){
+    return { from: f.year + '-01-01', to: f.year + '-12-31' };
+  }
+  if(f.mode === 'custom' && f.from && f.to){
+    return { from: f.from, to: f.to };
+  }
+  return null;
+}
+function reportOverlaps(e, range){
+  if(!range) return true;
+  return e.periodEnd >= range.from && e.periodStart <= range.to;
+}
+function dateInRange(date, range){
+  return !range || (date >= range.from && date <= range.to);
+}
+function filteredDaily(rep, range){
+  if(!range) return (rep.daily || []).slice();
+  return (rep.daily || []).filter(function(d){ return dateInRange(d.date, range); });
+}
+function filteredProducts(rep, range){
+  if(!rep.dailyProducts){
+    return (rep.products || []).map(function(p){
+      var copy=Object.assign({},p);
+      var units=copy.netUnits !== undefined ? copy.netUnits : (copy.grossUnits || 0);
+      var groupName=groupNameFor(rawKey(rep.platform,copy.name),copy.name);
+      var cost=getEffectiveCost(groupName,rep.periodStart);
+      copy.cogs=0; copy.costedUnits=0; copy.missingUnits=0;
+      if(cost===null) copy.missingUnits=units;
+      else { copy.cogs=cost*units; copy.costedUnits=units; }
+      return copy;
+    });
+  }
+  var map = {};
+  filteredDaily(rep, range).forEach(function(d){
+    var day = rep.dailyProducts[d.date] || {};
+    Object.keys(day).forEach(function(name){
+      var p = day[name];
+      if(!map[name]) map[name] = { name:name, grossValue:0, refundValue:0, net:0, grossUnits:0, refundUnits:0, returnedUnits:0, netUnits:0 };
+      map[name].grossValue += p.grossValue || 0;
+      map[name].refundValue += p.refundValue || 0;
+      map[name].net += p.net || 0;
+      map[name].grossUnits += p.grossUnits || 0;
+      map[name].refundUnits += p.refundUnits || p.returnedUnits || 0;
+      map[name].returnedUnits += p.returnedUnits || p.refundUnits || 0;
+      map[name].netUnits += p.netUnits || 0;
+    });
+  });
+  return Object.keys(map).map(function(name){
+    var p = map[name];
+    p.refundRate = p.grossValue > 0 ? (p.refundValue / p.grossValue * 100) : (p.grossUnits > 0 ? (p.returnedUnits / p.grossUnits * 100) : 0);
+    p.rateBasis = rep.platform === 'flipkart' ? 'units' : 'value';
+    p.cogs = 0;
+    p.costedUnits = 0;
+    p.missingUnits = 0;
+    if(rep.dailyProducts){
+      Object.keys(rep.dailyProducts).forEach(function(day){
+        if(!dateInRange(day, range)) return;
+        var dp=rep.dailyProducts[day] && rep.dailyProducts[day][name];
+        if(!dp) return;
+        var units = dp.netUnits !== undefined ? dp.netUnits : (dp.grossUnits || 0);
+        if(units <= 0) return;
+        var groupName=groupNameFor(rawKey(rep.platform,name),name);
+        var cost=getEffectiveCost(groupName,day);
+        if(cost===null) p.missingUnits += units;
+        else { p.cogs += cost*units; p.costedUnits += units; }
+      });
+    } else {
+      var unitsLegacy=p.netUnits !== undefined ? p.netUnits : (p.grossUnits || 0);
+      var groupLegacy=groupNameFor(rawKey(rep.platform,name),name);
+      var legacyCost=getEffectiveCost(groupLegacy,rep.periodStart);
+      if(legacyCost===null) p.missingUnits += unitsLegacy;
+      else { p.cogs += legacyCost*unitsLegacy; p.costedUnits += unitsLegacy; }
+    }
+    return p;
+  }).sort(function(a,b){ return b.grossValue-a.grossValue; });
+}
+function filteredTotals(rep, range){
+  if(!range) return JSON.parse(JSON.stringify(rep.totals));
+  var days = filteredDaily(rep, range);
+  if(!days.length) return null;
+  if(rep.platform === 'amazon'){
+    var t = {orderRevenue:0, refunds:0, reimbursements:0, fees:0, byType:{}, net:0, deferredCount:0, deferredTotal:0};
+    days.forEach(function(d){
+      t.net += d.net || 0;
+      Object.keys(d.byType || {}).forEach(function(type){
+        var v = d.byType[type] || 0;
+        t.byType[type] = (t.byType[type]||0) + v;
+      });
+    });
+    t.orderRevenue = t.byType['Order Payment'] || 0;
+    t.deferredTotal = t.orderRevenue;
+    t.deferredCount = 0;
+    return t;
+  }
+  var t2 = {grossSales:0, returns:0, rto:0, rvp:0, cancelled:0, expenses:0, rewards:0, itc:0, net:0};
+  days.forEach(function(d){ t2.grossSales += d.gross||0; t2.returns += d.refunds||0; t2.expenses += d.expenses||0; t2.rewards += d.rewards||0; t2.itc += d.itc||0; t2.net += d.net||0; });
+  // Daily Orders P&L does not always expose RTO/RVP/cancellation amounts separately.
+  // Keep the exact report-level breakdown only for full-report views; for a partial range
+  // use the order-level returns bucket and leave sub-breakdowns at zero rather than inventing them.
+  return t2;
+}
+function rangeLabel(range){
+  if(!range) return 'All time';
+  return range.from + ' \u2192 ' + range.to;
+}
+function buildAvailablePeriods(){
+  var months = {}, years = {};
+  Object.keys(state.cache).forEach(function(k){
+    var rep = state.cache[k];
+    if(!rep || !rep.daily) return;
+    rep.daily.forEach(function(d){
+      months[d.date.slice(0,7)] = true;
+      years[d.date.slice(0,4)] = true;
+    });
+  });
+  return {
+    months: Object.keys(months).sort(),
+    years: Object.keys(years).sort()
+  };
+}
+function monthLabel(ym){
+  var names=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var y = ym.slice(0,4), m = parseInt(ym.slice(5,7),10);
+  return names[m-1] + ' ' + y;
+}
+
+// ---------- upload handling ----------
+var dropzone = document.getElementById('dropzone');
+var fileInput = document.getElementById('fileInput');
+var dropStatus = document.getElementById('dropStatus');
+var savedReportActions = document.getElementById('savedReportActions');
+var removeSelectedReportBtn = document.getElementById('removeSelectedReport');
+
+dropzone.addEventListener('click', function(){ fileInput.click(); });
+dropzone.addEventListener('dragover', function(e){ e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', function(){ dropzone.classList.remove('drag'); });
+dropzone.addEventListener('drop', function(e){
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', function(e){
+  if(e.target.files.length) handleFile(e.target.files[0]);
+});
+
+function setStatus(msg, cls){
+  dropStatus.textContent = msg;
+  dropStatus.className = cls || '';
+  if(savedReportActions){
+    savedReportActions.style.display = state.history && state.history.length ? 'block' : 'none';
+  }
+}
+
+function handleFile(file){
+  setStatus('Reading ' + file.name + ' \u2026', '');
+  var name = file.name.toLowerCase();
+  if(name.endsWith('.csv')){
+    var reader = new FileReader();
+    reader.onload = async function(e){
+      try{
+        var report = parseAmazonCSV(e.target.result);
+        report.rawSourceKey = RAW_AMAZON_KEY;
+        await dbSet(RAW_AMAZON_KEY, e.target.result);
+        finishParse(report);
+      }catch(err){
+        setStatus('Could not read that as an Amazon report. ' + err.message, 'err');
+      }
+    };
+    reader.readAsText(file);
+  } else if(name.endsWith('.xlsx') || name.endsWith('.xls')){
+    var reader2 = new FileReader();
+    reader2.onload = function(e){
+      try{
+        var report = parseFlipkartXLSX(e.target.result);
+        finishParse(report);
+      }catch(err){
+        if(err.message === 'MISSING_SHEETS'){
+          setStatus('This .xlsx doesn\'t look like a Flipkart P&L report (expected Overall Summary, Orders P&L, SKU-level P&L sheets).', 'err');
+        } else {
+          setStatus('Could not parse that file. ' + err.message, 'err');
+        }
+      }
+    };
+    reader2.readAsArrayBuffer(file);
+  } else {
+    setStatus('Unrecognised file type \u2014 upload the Amazon .csv or Flipkart .xlsx report.', 'err');
+  }
+}
+
+async function removeSelectedReport(){
+  var pf = null;
+  if(state.selected.amazon) pf = 'amazon';
+  else if(state.selected.flipkart) pf = 'flipkart';
+
+  if(!pf) return;
+
+  var key = state.selected[pf];
+  var entry = state.history.find(function(e){ return e.key === key; });
+  if(!entry) return;
+
+  var ok = window.confirm(
+    'Remove this saved ' + platLabel(pf) + ' report?\n\n' +
+    entry.periodStart + ' to ' + entry.periodEnd + '\n' +
+    fmtINR(entry.net) + ' net\n\nThis removes the saved report from this browser. Cost/product settings are kept.'
+  );
+  if(!ok) return;
+
+  await deleteReport(key);
+  delete state.cache[key];
+  state.selected[pf] = null;
+  await refresh();
+
+  if(savedReportActions){
+    savedReportActions.style.display = state.history.length ? 'block' : 'none';
+  }
+  setStatus('Saved report removed.', 'ok');
+}
+
+if(removeSelectedReportBtn){
+  removeSelectedReportBtn.addEventListener('click', removeSelectedReport);
+}
+
+async function finishParse(report){
+  var existing = state.history.filter(function(e){ return e.platform===report.platform && e.periodStart===report.periodStart && e.periodEnd===report.periodEnd; });
+  var replaceKey = null;
+  if(existing.length){
+    var latest = existing.slice().sort(function(a,b){ return b.uploadedAt.localeCompare(a.uploadedAt); })[0];
+    var replace = window.confirm('A ' + platLabel(report.platform) + ' report for ' + report.periodStart + ' to ' + report.periodEnd + ' already exists. Replace it?\n\nChoose OK to replace the existing report, or Cancel to keep both.');
+    if(replace) replaceKey = latest.key;
+  }
+  var key = await saveReport(report, replaceKey);
+  if(replaceKey) delete state.cache[replaceKey];
+  state.cache[key] = report;
+  setStatus((replaceKey ? 'Replaced ' : 'Saved ') + platLabel(report.platform) + ' report: ' + report.periodStart + ' to ' + report.periodEnd + ' (' + fmtINR(report.totals.net) + ' net)', 'ok');
+  state.selected[report.platform] = key;
+  await refresh();
+}
+
+// ---------- backup / restore ----------
+// Everything the tool knows (parsed reports, cost prices, groupings, combos,
+// pending rules) bundled into one downloadable JSON file. Restoring reads
+// that file back in and merges it with whatever's already stored, so this
+// doubles as a way to move data between browsers/devices too.
+var backupStatus = document.getElementById('backupStatus');
+function setBackupStatus(msg, ok){
+  if(!backupStatus) return;
+  backupStatus.textContent = msg;
+  backupStatus.style.color = ok ? 'var(--teal)' : 'var(--clay)';
+}
+
+async function exportBackup(){
+  var reports = {};
+  state.history.forEach(function(e){
+    if(state.cache[e.key]) reports[e.key] = state.cache[e.key];
+  });
+  var data = {
+    exportedAt: new Date().toISOString(),
+    version: 1,
+    reportIndex: state.history,
+    reports: reports,
+    costCatalog: state.costCatalog,
+    otherChargesCatalog: state.otherChargesCatalog,
+    productGroups: state.productGroups,
+    combos: state.combos,
+    pendingGroupRules: state.pendingGroupRules,
+    orderCompositions: state.orderCompositions
+  };
+  var blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'settlement-ledger-backup-' + toISO(new Date()) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  setBackupStatus('Backup downloaded \u2014 save it wherever you keep your report archive.', true);
+}
+
+// Builds a downloadable .xlsx mirroring what's on screen: one sheet with the
+// grouped product-level profit (the main deliverable), plus one summary sheet
+// per platform using each platform's own categories, respecting whatever date
+// filter is currently selected.
+function exportExcel(){
+  var range = computeRange();
+  var groups = buildMasterGroups(range);
+  var wb = XLSX.utils.book_new();
+
+  var productRows = [['Product','Platforms','Units sold','Net earnings (INR)','Cost/unit (INR)','Other charges/unit (INR)','COGS (INR)','True profit (INR)']];
+  groups.forEach(function(g){
+    var profit = groupProfit(g);
+    productRows.push([
+      g.name,
+      Object.keys(g.platforms).join(', '),
+      Math.round(g.units),
+      Math.round(g.net),
+      profit.hasCost ? profit.cost : '',
+      profit.hasCost ? getOtherCharge(g.name) : '',
+      profit.hasCost ? Math.round(profit.cogs) : '',
+      Math.round(profit.trueProfit)
+    ]);
+  });
+  var wsProducts = XLSX.utils.aoa_to_sheet(productRows);
+  wsProducts['!cols'] = [{wch:28},{wch:16},{wch:11},{wch:16},{wch:16},{wch:24},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, wsProducts, 'Product profit');
+
+  var at = totalsFor('amazon', range);
+  var amazonRows = [
+    ['Metric','Amount (INR)'],
+    ['Order revenue', Math.round(at.orderRevenue)],
+    ['Refunds paid out', Math.round(at.refunds)],
+    ['Reimbursements & credits', Math.round(at.reimbursements)],
+    ['  - Fulfillment fee refunds', Math.round(at.byType['Fulfillment Fee Refund']||0)],
+    ['  - Inventory reimbursements', Math.round(at.byType['Inventory Reimbursement']||0)],
+    ['  - Other adjustments', Math.round(at.byType['Other']||0)],
+    ['Amazon fees charged (info only)', Math.round(at.fees)],
+    ['Net settled', Math.round(at.net)]
+  ];
+  var wsAmazon = XLSX.utils.aoa_to_sheet(amazonRows);
+  wsAmazon['!cols'] = [{wch:30},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, wsAmazon, 'Amazon summary');
+
+  var ft = totalsFor('flipkart', range);
+  var flipkartRows = [
+    ['Metric','Amount (INR)'],
+    ['Gross sales', Math.round(ft.grossSales)],
+    ['Returns & cancellations', -Math.round(ft.returns)],
+    ['  - RTO (logistics return)', Math.round(ft.rto)],
+    ['  - RVP (customer return)', Math.round(ft.rvp)],
+    ['  - Cancelled', Math.round(ft.cancelled)],
+    ['Total expenses', -Math.round(ft.expenses)],
+    ['Rewards & tax credits', Math.round(ft.rewards+ft.itc)],
+    ['Net earnings', Math.round(ft.net)]
+  ];
+  var wsFlipkart = XLSX.utils.aoa_to_sheet(flipkartRows);
+  wsFlipkart['!cols'] = [{wch:30},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, wsFlipkart, 'Flipkart summary');
+
+  XLSX.writeFile(wb, 'settlement-ledger-' + toISO(new Date()) + (range ? '-' + range.from + '_' + range.to : '') + '.xlsx');
+}
+
+async function importBackupFile(file){
+  setBackupStatus('Reading backup file \u2026', true);
+  var reader = new FileReader();
+  reader.onload = async function(e){
+    try{
+      var data = JSON.parse(e.target.result);
+      if(!data || !data.reportIndex || !data.reports){
+        throw new Error('That doesn\'t look like a settlement ledger backup file.');
+      }
+      var importedReports = 0;
+      for(var i=0;i<data.reportIndex.length;i++){
+        var entry = data.reportIndex[i];
+        var rep = data.reports[entry.key];
+        if(rep){
+          await dbSet(entry.key, JSON.stringify(rep));
+          state.cache[entry.key] = rep;
+          importedReports++;
+        }
+      }
+
+      var idx = await loadIndex();
+      var idxKeys = {};
+      idx.forEach(function(e){ idxKeys[e.key] = true; });
+      data.reportIndex.forEach(function(e){
+        if(!idxKeys[e.key]) idx.push(e);
+      });
+      idx.sort(function(a,b){ return a.periodStart.localeCompare(b.periodStart); });
+      await saveIndex(idx);
+
+      state.costCatalog = Object.assign({}, state.costCatalog, data.costCatalog || {});
+      state.otherChargesCatalog = Object.assign({}, state.otherChargesCatalog, data.otherChargesCatalog || {});
+      state.productGroups = Object.assign({}, state.productGroups, data.productGroups || {});
+      state.combos = Object.assign({}, state.combos, data.combos || {});
+      state.orderCompositions = Object.assign({}, state.orderCompositions, data.orderCompositions || {});
+      var pendingMap = {};
+      (state.pendingGroupRules||[]).concat(data.pendingGroupRules||[]).forEach(function(r){
+        pendingMap[r.name.toLowerCase()] = r;
+      });
+      state.pendingGroupRules = Object.keys(pendingMap).map(function(k){ return pendingMap[k]; });
+
+      await saveCostCatalog(state.costCatalog);
+      await saveOtherCharges(state.otherChargesCatalog);
+      await saveGroups(state.productGroups);
+      await saveCombos(state.combos);
+      await savePendingGroups(state.pendingGroupRules);
+      await saveOrderCompositions(state.orderCompositions);
+
+      setBackupStatus('Restored ' + importedReports + ' report(s), plus cost, grouping and combo data.', true);
+      await refresh();
+    }catch(err){
+      setBackupStatus('Could not restore that file \u2014 ' + err.message, false);
+    }
+  };
+  reader.readAsText(file);
+}
+
+var exportBackupBtn = document.getElementById('exportBackupBtn');
+var importBackupBtn = document.getElementById('importBackupBtn');
+var importFileInput = document.getElementById('importFileInput');
+if(exportBackupBtn) exportBackupBtn.addEventListener('click', function(){ exportBackup(); });
+if(importBackupBtn) importBackupBtn.addEventListener('click', function(){ importFileInput.click(); });
+if(importFileInput) importFileInput.addEventListener('change', function(e){
+  if(e.target.files.length) importBackupFile(e.target.files[0]);
+});
+
+// ---------- top-level refresh ----------
+var mainArea = document.getElementById('mainArea');
+var reportCountEl = document.getElementById('reportCount');
+
+async function repairSavedReportDates(){
+  var idx = await loadIndex();
+  var changed = false;
+  for(var i=0;i<idx.length;i++){
+    var entry=idx[i];
+    var rep=state.cache[entry.key];
+    if(!rep){ rep=await loadReport(entry.key); if(rep) state.cache[entry.key]=rep; }
+    if(!rep) continue;
+
+    var dates=[];
+    if(Array.isArray(rep.daily)) rep.daily.forEach(function(d){
+      var iso=safeISOFromDateValue(d && d.date);
+      if(iso) dates.push(iso);
+    });
+    if(!dates.length && Array.isArray(rep.orders)) rep.orders.forEach(function(o){
+      var iso=safeISOFromDateValue(o && o.date);
+      if(iso) dates.push(iso);
+    });
+
+    // If an older Amazon report was parsed with the old DD/MM-only parser, its
+    // stored dates may literally be NaN-NaN-NaN. The raw CSV is kept for the
+    // latest Amazon upload, so reparse it with the corrected parser when the
+    // saved report has no usable dates. This repairs the current report without
+    // touching manually saved order compositions or cost settings.
+    if(!dates.length && rep.platform==='amazon' && rep.rawSourceKey===RAW_AMAZON_KEY){
+      try{
+        var raw=await dbGet(RAW_AMAZON_KEY);
+        if(raw){
+          var repaired=parseAmazonCSV(raw);
+          if(repaired && repaired.periodStart && repaired.periodEnd && repaired.totals && Math.round(repaired.totals.net)===Math.round(rep.totals.net)){
+            rep.daily=repaired.daily;
+            rep.dailyProducts=repaired.dailyProducts;
+            rep.products=repaired.products;
+            rep.orders=repaired.orders;
+            rep.periodStart=repaired.periodStart;
+            rep.periodEnd=repaired.periodEnd;
+            rep.parserVersion=PARSER_VERSION;
+            await dbSet(entry.key, JSON.stringify(rep));
+            state.cache[entry.key]=rep;
+            dates=(repaired.daily||[]).map(function(d){return d.date;}).filter(isValidISODate);
+          }
+        }
+      }catch(e){}
+    }
+
+    var start=safeISOFromDateValue(rep.periodStart) || (dates.length ? dates.slice().sort()[0] : null);
+    var end=safeISOFromDateValue(rep.periodEnd) || (dates.length ? dates.slice().sort().slice(-1)[0] : null);
+    if(start && end && (!isValidISODate(entry.periodStart)||!isValidISODate(entry.periodEnd)||entry.periodStart!==start||entry.periodEnd!==end)){
+      entry.periodStart=start;
+      entry.periodEnd=end;
+      changed=true;
+    }
+    if(start && end && (rep.periodStart!==start || rep.periodEnd!==end)){
+      rep.periodStart=start;
+      rep.periodEnd=end;
+      await dbSet(entry.key, JSON.stringify(rep));
+      state.cache[entry.key]=rep;
+    }
+  }
+  if(changed){
+    idx.sort(function(a,b){ return String(a.periodStart||'').localeCompare(String(b.periodStart||'')) || String(a.uploadedAt||'').localeCompare(String(b.uploadedAt||'')); });
+    await saveIndex(idx);
+  }
+  return changed;
+}
+
+async function refresh(){
+  state.history = await loadIndex();
+  await repairSavedReportDates();
+  state.history = await loadIndex();
+  reportCountEl.textContent = state.history.length + (state.history.length === 1 ? ' report on file' : ' reports on file');
+  if(savedReportActions){
+    savedReportActions.style.display = state.history.length ? 'block' : 'none';
+  }
+
+  if(state.history.length === 0){
+    mainArea.innerHTML = '<div class="empty">No reports yet \u2014 upload one above to see the dashboard.</div>';
+    return;
+  }
+
+  for(var i=0;i<state.history.length;i++){
+    var k = state.history[i].key;
+    if(!state.cache[k]){
+      var rep = await loadReport(k);
+      if(rep) state.cache[k] = rep;
+    }
+  }
+
+  // V16 migration: do NOT reparse every historical report from the latest
+  // uploaded CSV. The raw-source slot contains only the most recent Amazon file,
+  // so doing that would overwrite older periods with the wrong report. Instead,
+  // migrate the existing parsed inference metadata in place. New uploads are
+  // parsed with V16 automatically.
+  for(var j=0;j<state.history.length;j++){
+    var ae=state.history[j], ar=state.cache[ae.key];
+    if(ae.platform==='amazon' && ar && (ar.parserVersion||0)<PARSER_VERSION){
+      try{
+        (ar.orders||[]).forEach(function(o){
+          if(o.inference){
+            o.inference.autoApply=false;
+            o.inference.isLikelyMulti=!!(o.inference.isLikelyMulti || (o.inference.components && (o.inference.components.length>1 || o.inference.components.some(function(c){return (parseInt(c.qty,10)||1)>1;}))));
+          }
+        });
+        ar.parserVersion=PARSER_VERSION;
+        await dbSet(ae.key, JSON.stringify(ar));
+        state.cache[ae.key]=ar;
+      }catch(e){}
+    }
+  }
+
+  var reconciled = reconcilePendingGroups();
+  if(reconciled.applied.length){
+    await saveGroups(state.productGroups);
+    await savePendingGroups(state.pendingGroupRules);
+    state.reconciledNote = reconciled.applied;
+  }
+
+  ['amazon','flipkart'].forEach(function(pf){
+    var reports = state.history.filter(function(e){ return e.platform === pf; }).sort(function(a,b){ return String(a.periodStart||'').localeCompare(String(b.periodStart||'')); });
+    if(reports.length){
+      if(!state.selected[pf] || !reports.find(function(e){ return e.key === state.selected[pf]; })){
+        state.selected[pf] = reports[reports.length-1].key;
+      }
+    } else {
+      state.selected[pf] = null;
+    }
+  });
+
+  renderAll();
+}
+
+function kpiCard(label, value, cls){
+  return '<div class="kpi"><p class="label">' + label + '</p><p class="value ' + (cls||'') + '">' + fmtINR(value) + '</p></div>';
+}
+function refundBadgeClass(rate){
+  if(rate >= 20) return 'high';
+  if(rate >= 8) return 'mid';
+  return 'low';
+}
+
+// ---------- Amazon multi-item order review ----------
+// Product charges above this threshold are only a review signal. They are NOT
+// automatically treated as combos. The seller confirms the actual composition.
+var MULTI_ITEM_REVIEW_THRESHOLD = 1500;
+function getAmazonMultiItemCandidates(range){
+  var out = [];
+  state.history.filter(function(e){ return e.platform==='amazon' && reportOverlaps(e, range); }).forEach(function(e){
+    var rep = state.cache[e.key];
+    if(!rep || !rep.orders) return;
+    rep.orders.forEach(function(o){
+      var inferred=o.inference;
+      var sourceCount=Object.keys(o.products||{}).length;
+      var sourceMulti=sourceCount>1 || Object.keys(o.products||{}).some(function(k){return (o.products[k].lineCount||0)>1;});
+      var likelyMulti=(inferred && inferred.isLikelyMulti) || sourceMulti;
+      // Price matching is never authoritative. Only a saved Order ID composition
+      // or a reusable combo definition may resolve a multi-product order automatically.
+      if(o.productCharges <= MULTI_ITEM_REVIEW_THRESHOLD && !likelyMulti) return;
+      var key = orderCompositionKey('amazon', o.id);
+      if(state.orderCompositions[key]) return;
+      out.push({ reportKey:e.key, reportStart:e.periodStart, reportEnd:e.periodEnd, order:o });
+    });
+  });
+  return out.sort(function(a,b){ return b.order.productCharges - a.order.productCharges; });
+}
+function allMasterProductNames(){
+  var names = {};
+  state.history.forEach(function(e){
+    var rep = state.cache[e.key];
+    if(!rep) return;
+    (rep.products||[]).forEach(function(p){ names[groupNameFor(rawKey(e.platform,p.name),p.name)] = true; });
+  });
+  return Object.keys(names).sort();
+}
+function orderComponentOptions(){
+  // Order-level composition should contain physical/base products. Reusable
+  // combo listings are expanded automatically from their combo definition.
+  return allMasterProductNames().filter(function(n){ return !(state.combos[n] && state.combos[n].length); });
+}
+function orderDraftValue(){
+  var rows = state.orderDraft || [];
+  return rows.reduce(function(s,r){ return s + (parseFloat(r.qty)||0); }, 0);
+}
+function orderEditorHtml(candidate){
+  var o=candidate.order;
+  var options=orderComponentOptions();
+  var draft=state.orderDraft||[];
+  var saved=state.orderCompositions[orderCompositionKey('amazon',o.id)];
+  var isEditing=!!saved;
+  var rows=draft.map(function(c,idx){
+    var opts='<option value="">Choose product</option>'+options.map(function(n){
+      return '<option value="'+escAttr(n)+'" '+(n===c.product?'selected':'')+'>'+escAttr(n)+'</option>';
+    }).join('');
+    var defaultCost=(c.cost!==undefined ? c.cost : (c.product && state.costCatalog[c.product]!==undefined ? state.costCatalog[c.product] : ''));
+    return '<div class="order-component-row" style="display:grid;grid-template-columns:minmax(240px,1fr) 64px 105px 105px auto;gap:8px;align-items:center;margin-bottom:8px;padding:8px;border:1px solid var(--rule);border-radius:7px;background:var(--paper-raised);">' +
+      '<select class="order-comp-product" data-idx="'+idx+'" aria-label="Product in order" style="font-size:12.5px;padding:7px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--paper);color:var(--ink);">'+opts+'</select>' +
+      '<input type="number" class="order-comp-qty" data-idx="'+idx+'" min="1" step="1" value="'+(c.qty||1)+'" aria-label="Quantity" style="width:72px;text-align:right;font-family:\'IBM Plex Mono\',monospace;font-size:12.5px;padding:7px;border:1px solid var(--rule);border-radius:6px;background:var(--paper);color:var(--ink);">' +
+      '<input type="number" class="order-comp-cost" data-idx="'+idx+'" min="0" step="0.01" value="'+escAttr(defaultCost)+'" placeholder="Cost/unit" aria-label="Cost per unit" style="width:105px;text-align:right;font-family:\'IBM Plex Mono\',monospace;font-size:12.5px;padding:7px;border:1px solid var(--rule);border-radius:6px;background:var(--paper);color:var(--ink);">' +
+      '<button type="button" class="link-btn order-comp-remove" data-idx="'+idx+'" style="color:var(--red,#a43b2f);">Remove</button></div>';
+  }).join('');
+  var totalComponentCost=draft.reduce(function(sum,c){
+    var draftCost=parseFloat(c.cost);
+    var catalogCost=parseFloat(c.product?state.costCatalog[c.product]:'');
+    var cost=isFinite(draftCost)?draftCost:catalogCost;
+    return sum+(isFinite(cost)?cost:0)*(parseInt(c.qty,10)||0);
+  },0);
+  var other=parseFloat(state.orderOtherCharge)||0;
+  var expectedProfit=(o.net||0)-totalComponentCost-other;
+  var benchmark=state.orderBenchmarkProfit!=='' && state.orderBenchmarkProfit!==null ? parseFloat(state.orderBenchmarkProfit) : NaN;
+  var variance=isFinite(benchmark) ? expectedProfit-benchmark : null;
+  var title=isEditing?'Edit saved order':'Define this order';
+  var saveLabel=isEditing?'Save changes':'Save order P/L';
+  var sourceProducts=Object.keys(o.products||{}).map(function(k){var p=o.products[k];return (p.name||'')+' × '+(p.qty||1);});
+  var sourceText=sourceProducts.length ? sourceProducts.join(' + ') : 'Amazon did not provide a product listing on the settlement row.';
+  return '<div class="order-editor" style="border:1px solid var(--gold);background:var(--gold-soft);border-radius:var(--radius);padding:14px 15px;margin-top:9px;" data-orderkey="'+escAttr(o.id)+'">' +
+    '<div class="row-between"><div><strong style="font-size:14px;">'+title+'</strong><div class="meta" style="margin-top:2px;">Order '+escAttr(o.id)+' · '+escAttr(o.date)+'</div></div><strong style="font-size:15px;">'+fmtINR(o.net)+'</strong></div>' +
+    '<div style="margin-top:10px;padding:9px 10px;border-radius:7px;background:rgba(255,255,255,.55);font-size:12.5px;line-height:1.55;"><strong>Order-level P/L:</strong> enter the products actually inside this order. Amazon may show only one listing on the settlement row even when the physical order contains multiple products. You do <strong>not</strong> need to create a combo product.</div>' +
+    '<div style="margin-top:10px;padding:9px 10px;border-radius:7px;background:var(--paper-raised);font-size:12px;line-height:1.5;"><strong>Amazon settlement listing:</strong> '+escAttr(sourceText)+'<br><span class="meta">Reference only — change the products below if the actual order was different.</span></div>' +
+    (o.inference && o.inference.components && o.inference.components.length ? '<div style="margin-top:8px;padding:9px 10px;border-radius:7px;background:rgba(31,110,86,.08);font-size:12px;line-height:1.5;"><strong>Price suggestion (review only):</strong> '+escAttr(o.inference.components.map(function(x){return x.product+' × '+x.qty;}).join(' + '))+' · '+Math.round(o.inference.error*10000)/100+'% charge difference · '+o.inference.confidence+' confidence'+''+'</div>' : '') +
+    '<div style="margin-top:13px;font-size:12px;font-weight:600;">Products actually in this order</div>' +
+    '<div style="display:grid;grid-template-columns:minmax(260px,1fr) 72px 112px auto;gap:8px;margin:6px 8px 5px;font-size:11px;color:var(--ink-faint);"><span>Product</span><span>Qty</span><span>Current cost</span><span></span></div>' +
+    '<div>'+rows+'</div>' +
+    '<button type="button" class="link-btn order-add-component" style="color:var(--teal);">+ Add another product</button>' +
+    '<div style="margin-top:14px;font-size:12px;font-weight:600;">Order cost adjustment <span style="font-weight:400;color:var(--ink-faint);">(optional)</span></div>' +
+    '<label style="display:block;font-size:11px;margin-top:5px;">Adjustment (+ charge / − discount) <input type="number" class="order-other-charge" step="0.01" value="'+other+'" placeholder="0" style="width:160px;margin-left:8px;padding:7px;border:1px solid var(--rule);border-radius:6px;background:var(--paper);color:var(--ink);"></label>' +
+    '<div style="margin-top:14px;font-size:12px;font-weight:600;">Excel check <span style="font-weight:400;color:var(--ink-faint);">(optional)</span></div>' +
+    '<label style="display:block;font-size:11px;margin-top:5px;">Your Excel profit <input type="number" class="order-benchmark-profit" min="-999999" step="0.01" value="'+(isFinite(benchmark)?benchmark:'')+'" placeholder="e.g. 466.97" style="width:140px;margin-left:8px;padding:7px;border:1px solid var(--rule);border-radius:6px;background:var(--paper);color:var(--ink);"></label>' +
+    '<div style="margin-top:14px;padding:10px 11px;border-radius:7px;background:var(--paper-raised);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:12.5px;"><span>Order amount <strong>'+fmtINR(o.net)+'</strong></span><span>Total cost <strong>'+fmtINR(totalComponentCost+other)+'</strong></span><span>Calculated profit <strong style="color:'+(expectedProfit<0?'var(--red,#a43b2f)':'var(--teal)')+';">'+fmtINR(expectedProfit)+'</strong></span>'+(variance!==null?'<span>Difference vs Excel <strong style="color:'+(Math.abs(variance)<0.01?'var(--teal)':'var(--red,#a43b2f)')+';">'+fmtINR(variance)+'</strong></span>':'')+'</div>' +
+    '<div style="margin-top:11px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;"><button type="button" class="link-btn order-save-composition" style="color:var(--teal);font-weight:600;">'+saveLabel+'</button><button type="button" class="link-btn order-cancel-composition">Cancel</button></div>' +
+    '</div>';
+}
+function findOrderAcrossReports(orderId){
+  var found=null;
+  state.history.forEach(function(e){
+    if(found) return;
+    var rep=state.cache[e.key];
+    if(!rep || !rep.orders) return;
+    var o=rep.orders.find(function(x){return x.id===orderId;});
+    if(o) found={reportKey:e.key,reportStart:e.periodStart,reportEnd:e.periodEnd,order:o};
+  });
+  return found;
+}
+function renderOrderCompositionPanel(){
+  var host=document.getElementById('orderCompositionPanel');
+  if(!host) return;
+  var candidates=getAmazonMultiItemCandidates(computeRange());
+  var confirmed=Object.keys(state.orderCompositions).filter(function(k){return k.indexOf('amazon::')===0;}).length;
+  var html='<div style="border:1px solid var(--rule);border-radius:var(--radius);padding:14px 15px;margin-top:10px;background:var(--paper);">';
+  html+='<div class="row-between"><div><p style="font-size:14px;font-weight:600;margin:0;">Amazon special-order P/L</p><p class="note" style="margin:3px 0 0;">Use this only when one Amazon order contains multiple products or needs a special cost breakdown.</p></div><span class="meta">'+confirmed+' saved</span></div>';
+  html+='<div style="margin-top:10px;padding:9px 10px;border-radius:7px;background:var(--paper-raised);font-size:12.5px;line-height:1.55;"><strong>Simple rule:</strong> find the Order ID → add the actual products → enter quantity + cost/unit → add any order-level adjustment → save. The saved cost is kept with that order, so later product-cost changes do not rewrite old order P/L. <strong>No combo product name is required.</strong></div>';
+  html+='<div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:11px 0 12px;">' +
+    '<label style="font-size:11px;">Order ID<br><input id="orderIdSearch" type="text" placeholder="e.g. 406-8419151-5176365" style="width:280px;margin-top:4px;padding:8px 9px;border:1px solid var(--rule);border-radius:6px;background:var(--paper-raised);color:var(--ink);"></label>' +
+    '<button type="button" class="link-btn" id="orderIdSearchBtn" style="color:var(--teal);font-weight:600;">Find / edit order</button>' +
+    '</div>';
+  if(candidates.length){
+    html+='<p class="note" style="color:var(--gold);margin-bottom:6px;">'+candidates.length+' order(s) above ₹'+MULTI_ITEM_REVIEW_THRESHOLD.toLocaleString('en-IN')+' are suggested for review. This is only a suggestion — price matching never changes P/L until you save the actual Order ID contents.</p>';
+    candidates.slice(0,50).forEach(function(c){
+      var o=c.order;
+      var source=Object.keys(o.products||{}).map(function(k){return o.products[k].name+' × '+o.products[k].qty;}).join('; ');
+      var saved=!!state.orderCompositions[orderCompositionKey('amazon',o.id)];
+      html+='<div style="border-top:1px solid var(--rule);padding:10px 0;">';
+      var suggestion=o.inference&&o.inference.components&&o.inference.components.length ? o.inference.components.map(function(x){return x.product+' × '+x.qty;}).join(' + ') : '';
+      html+='<div class="row-between"><div><strong style="font-size:12.5px;">'+escAttr(o.id)+'</strong><div class="meta">'+escAttr(o.date)+' · '+escAttr(source||'source listing unavailable')+'</div>'+(suggestion?'<div style="margin-top:4px;color:var(--teal);font-size:11.5px;"><strong>Price suggestion (review only):</strong> '+escAttr(suggestion)+''+'</div>':'')+'</div><div style="text-align:right;"><strong>'+fmtINR(o.productCharges)+'</strong><br><span class="meta">P/L amount '+fmtINR(o.net)+'</span></div></div>';
+      html+='<div style="margin-top:6px;"><button type="button" class="link-btn review-order-btn" data-order="'+escAttr(o.id)+'" style="color:var(--teal);">'+(saved?'Edit this order':'Define this order')+'</button></div>';
+      if(state.editingOrder===o.id){html+=orderEditorHtml(c);}
+      html+='</div>';
+    });
+  } else {
+    html+='<p class="note" style="margin-bottom:0;">No suggested high-value orders in the current date range. You can still find any Order ID above.</p>';
+  }
+
+  // If the user is editing a saved order that is not currently in the
+  // high-value candidate list (for example because the date filter changed),
+  // render its editor here as well. Previously the Edit button opened the
+  // state but nothing was rendered, making saved orders impossible to modify.
+  if(state.editingOrder){
+    var alreadyRendered=candidates.some(function(c){return c.order && c.order.id===state.editingOrder;});
+    if(!alreadyRendered){
+      var editingFound=findOrderAcrossReports(state.editingOrder);
+      if(editingFound){
+        html+='<div style="border-top:1px solid var(--rule);margin-top:12px;padding-top:11px;">';
+        html+='<div class="meta" style="margin-bottom:6px;">Editing saved order</div>';
+        html+=orderEditorHtml({order:editingFound.order});
+        html+='</div>';
+      }
+    }
+  }
+  var savedKeys=Object.keys(state.orderCompositions).filter(function(k){return k.indexOf('amazon::')===0;});
+  if(savedKeys.length){
+    html+='<div style="border-top:1px solid var(--rule);margin-top:12px;padding-top:11px;"><div class="row-between"><p style="font-size:13px;font-weight:600;margin:0;">Saved special orders</p><span class="meta">'+savedKeys.length+'</span></div>';
+    savedKeys.slice(0,50).forEach(function(k){
+      var c=state.orderCompositions[k];
+      var desc=(c.components||[]).map(function(x){return x.product+' × '+x.qty;}).join(' + ');
+      html+='<div class="row-between" style="padding:8px 0;border-bottom:1px solid var(--rule);"><div><strong style="font-size:12.5px;">'+escAttr(c.orderId)+'</strong><div class="meta" style="margin-top:2px;">'+escAttr(desc)+(c.otherCharge ? ' · other '+fmtINR(c.otherCharge) : '')+'</div></div><div style="display:flex;gap:9px;"><button type="button" class="link-btn edit-saved-order" data-order="'+escAttr(c.orderId)+'" style="color:var(--teal);">Edit</button><button type="button" class="link-btn delete-saved-order" data-order="'+escAttr(c.orderId)+'" style="color:var(--red,#a43b2f);">Delete</button></div></div>';
+    });
+    html+='</div>';
+  }
+  var auditKeys=Object.keys(state.orderCompositions).filter(function(k){return k.indexOf('amazon::')===0;});
+  if(auditKeys.length){
+    html+='<div style="border-top:1px solid var(--rule);margin-top:14px;padding-top:12px;">';
+    html+='<div class="row-between"><p style="font-size:13px;font-weight:600;margin:0;">Order P/L audit</p><span class="meta">saved special orders</span></div>';
+    html+='<p class="note" style="margin:4px 0 8px;">Use this table to reconcile each special order with your Excel. Every Order ID is calculated independently and included once in the overall P/L.</p>';
+    html+='<div style="overflow:auto;"><table style="width:100%;font-size:12px;"><thead><tr><th>Order ID</th><th class="num">Amount</th><th>Actual contents</th><th class="num">COGS</th><th class="num">Calculated</th><th class="num">Excel</th><th class="num">Difference</th></tr></thead><tbody>';
+    auditKeys.forEach(function(k){
+      var c=state.orderCompositions[k], found=findOrderAcrossReports(c.orderId); if(!found) return;
+      var b=getOrderCostBreakdown(found.order), calc=(found.order.net||0)-(b.cogs||0), bench=isFinite(parseFloat(c.benchmarkProfit))?parseFloat(c.benchmarkProfit):null, diff=bench===null?null:calc-bench;
+      var desc=(c.components||[]).map(function(x){return escAttr(x.product)+' × '+x.qty+' @ '+fmtINR(x.cost);}).join('<br>')+(c.otherCharge?' + adjustment '+fmtINR(c.otherCharge):'');
+      html+='<tr><td>'+escAttr(c.orderId)+'</td><td class="num">'+fmtINR(found.order.net)+'</td><td>'+desc+'</td><td class="num">'+fmtINR(b.cogs||0)+'</td><td class="num">'+fmtINR(calc)+'</td><td class="num">'+(bench===null?'—':fmtINR(bench))+'</td><td class="num" style="color:'+(diff!==null&&Math.abs(diff)<0.01?'var(--teal)':'var(--red,#a43b2f)')+';">'+(diff===null?'—':fmtINR(diff))+'</td></tr>';
+    });
+    html+='</tbody></table></div></div>';
+  }
+  html+='</div>';
+  host.innerHTML=html;
+  function openOrder(oid){
+    var found=findOrderAcrossReports(oid);
+    if(!found){alert('Order ID not found in the uploaded Amazon reports.');return;}
+    var saved=state.orderCompositions[orderCompositionKey('amazon',oid)];
+    state.editingOrder=oid;
+    if(saved && saved.components){
+      state.orderDraft=saved.components.map(function(x){return {product:x.product,qty:parseInt(x.qty,10)||1,cost:(x.cost!==undefined?x.cost:(state.costCatalog[x.product]!==undefined?state.costCatalog[x.product]:''))};});
+      state.orderOtherCharge=saved.otherCharge!==undefined?saved.otherCharge:0;
+      state.orderBenchmarkProfit=saved.benchmarkProfit!==undefined?saved.benchmarkProfit:'';
+    } else {
+      // Never prefill the editor from the price-based inference. The inference
+      // is only a suggestion; the editable order definition must start from what
+      // Amazon actually exposed and let the seller add the physical contents.
+      var sourceProducts=Object.keys(found.order.products||{}).map(function(k){
+        var p=found.order.products[k];
+        var product=groupNameFor(rawKey('amazon',p.name),p.name);
+        // If the listing is a known reusable combo, keep its first-level listing
+        // out of the physical-order editor and expand it into its components.
+        var expanded=expandComboComponents(product,parseInt(p.qty,10)||1,found.order.date);
+        return expanded || {product:product,qty:parseInt(p.qty,10)||1};
+      }).reduce(function(acc,items){
+        return acc.concat(items instanceof Array ? items : [items]);
+      },[]);
+      sourceProducts=normalizeComponents(sourceProducts);
+      if(!sourceProducts.length) sourceProducts=[{product:orderComponentOptions()[0]||'',qty:1}];
+      state.orderDraft=sourceProducts.map(function(x){return {product:x.product,qty:x.qty,cost:(state.costCatalog[x.product]!==undefined?state.costCatalog[x.product]:'')};});
+      state.orderOtherCharge=0;
+      state.orderBenchmarkProfit='';
+    }
+    renderOrderCompositionPanel();
+    setTimeout(function(){var ed=host.querySelector('.order-editor');if(ed) ed.scrollIntoView({behavior:'smooth',block:'center'});},30);
+  }
+  var searchBtn=host.querySelector('#orderIdSearchBtn');
+  if(searchBtn) searchBtn.addEventListener('click',function(){openOrder((host.querySelector('#orderIdSearch')||{}).value.trim());});
+  var searchInput=host.querySelector('#orderIdSearch');
+  if(searchInput) searchInput.addEventListener('keydown',function(ev){if(ev.key==='Enter')openOrder(searchInput.value.trim());});
+  host.querySelectorAll('.edit-saved-order,.review-order-btn').forEach(function(el){el.addEventListener('click',function(){openOrder(el.getAttribute('data-order'));});});
+  host.querySelectorAll('.delete-saved-order').forEach(function(el){el.addEventListener('click',async function(){
+    var oid=el.getAttribute('data-order');
+    if(!confirm('Remove the saved special-order P/L for '+oid+'? The original order will go back to the normal calculation.')) return;
+    delete state.orderCompositions[orderCompositionKey('amazon',oid)];
+    await saveOrderCompositions(state.orderCompositions);
+    if(state.editingOrder===oid){state.editingOrder=null;state.orderDraft=null;state.orderOtherCharge=0;}
+    renderAll();
+  });});
+  host.querySelectorAll('.order-comp-product').forEach(function(el){el.addEventListener('change',function(){var i=parseInt(el.getAttribute('data-idx'),10);state.orderDraft[i].product=el.value;if(state.costCatalog[el.value]!==undefined)state.orderDraft[i].cost=state.costCatalog[el.value];renderOrderCompositionPanel();});});
+  // IMPORTANT: never re-render the order editor from an input/change event.
+  // Re-rendering replaces the input DOM node, steals focus, and can turn a
+  // value such as 795 into only the first typed digit. Keep all edits in the
+  // existing DOM/state and read the final values when Save is clicked.
+  host.querySelectorAll('.order-comp-qty').forEach(function(el){
+    el.addEventListener('input',function(){
+      var i=parseInt(el.getAttribute('data-idx'),10);
+      if(state.orderDraft[i]) state.orderDraft[i].qty=el.value;
+    });
+  });
+  host.querySelectorAll('.order-comp-cost').forEach(function(el){
+    el.addEventListener('input',function(){
+      var i=parseInt(el.getAttribute('data-idx'),10);
+      if(state.orderDraft[i]) state.orderDraft[i].cost=el.value;
+    });
+  });
+  host.querySelectorAll('.order-comp-remove').forEach(function(el){el.addEventListener('click',function(){state.orderDraft.splice(parseInt(el.getAttribute('data-idx'),10),1);renderOrderCompositionPanel();});});
+  var add=host.querySelector('.order-add-component');
+  if(add) add.addEventListener('click',function(){var opts=allMasterProductNames();var used=(state.orderDraft||[]).map(function(x){return x.product;});var n=opts.find(function(x){return used.indexOf(x)<0;})||opts[0];if(n)state.orderDraft.push({product:n,qty:1,cost:(state.costCatalog[n]!==undefined?state.costCatalog[n]:'')});renderOrderCompositionPanel();});
+  var other=host.querySelector('.order-other-charge');
+  if(other){
+    other.addEventListener('input',function(){ state.orderOtherCharge=other.value; });
+  }
+  var benchmark=host.querySelector('.order-benchmark-profit');
+  if(benchmark){
+    benchmark.addEventListener('input',function(){ state.orderBenchmarkProfit=benchmark.value; });
+  }
+  var save=host.querySelector('.order-save-composition');
+  if(save) save.addEventListener('click',async function(){
+    // Sync the values currently visible in the editor before validating/saving.
+    // This also guarantees that the Save button works even if an input still
+    // has focus and its blur/change event has not fired.
+    host.querySelectorAll('.order-comp-qty').forEach(function(el){
+      var i=parseInt(el.getAttribute('data-idx'),10);
+      if(state.orderDraft[i]) state.orderDraft[i].qty=el.value;
+    });
+    host.querySelectorAll('.order-comp-cost').forEach(function(el){
+      var i=parseInt(el.getAttribute('data-idx'),10);
+      if(state.orderDraft[i]) state.orderDraft[i].cost=el.value;
+    });
+    var otherNow=host.querySelector('.order-other-charge');
+    if(otherNow) state.orderOtherCharge=otherNow.value;
+    var benchmarkNow=host.querySelector('.order-benchmark-profit');
+    if(benchmarkNow) state.orderBenchmarkProfit=benchmarkNow.value;
+    var oid=state.editingOrder;
+    var rawClean=(state.orderDraft||[]).filter(function(x){return x.product&&(parseInt(x.qty,10)||0)>0;}).map(function(x){var draftCost=parseFloat(x.cost); var catalogCost=parseFloat(state.costCatalog[x.product]); var cost=isFinite(draftCost)&&draftCost>=0?draftCost:(isFinite(catalogCost)&&catalogCost>=0?catalogCost:null); return {product:x.product,qty:parseInt(x.qty,10)||1,cost:cost};});
+    if(!rawClean.length){alert('Add at least one product.');return;}
+    if(rawClean.some(function(x){return x.cost===null;})){alert('Set the product cost first, then define this order.');return;}
+    var clean=[];
+    rawClean.forEach(function(x){var same=clean.find(function(y){return y.product===x.product && Math.abs(y.cost-x.cost)<0.000001;});if(same) same.qty+=x.qty;else clean.push(x);});
+    var benchmarkValue=state.orderBenchmarkProfit!=='' && state.orderBenchmarkProfit!==null ? parseFloat(state.orderBenchmarkProfit) : null;
+    state.orderCompositions[orderCompositionKey('amazon',oid)]={platform:'amazon',orderId:oid,components:clean.map(function(x){return {product:x.product,qty:x.qty,cost:x.cost};}),otherCharge:isFinite(parseFloat(state.orderOtherCharge))?parseFloat(state.orderOtherCharge):0,benchmarkProfit:isFinite(benchmarkValue)?benchmarkValue:null,savedAt:new Date().toISOString()};
+    await saveOrderCompositions(state.orderCompositions);
+    state.editingOrder=null;state.orderDraft=null;state.orderOtherCharge=0;state.orderBenchmarkProfit='';renderAll();
+  });
+  var cancel=host.querySelector('.order-cancel-composition');
+  if(cancel) cancel.addEventListener('click',function(){state.editingOrder=null;state.orderDraft=null;state.orderOtherCharge=0;state.orderBenchmarkProfit='';renderOrderCompositionPanel();});
+}
+
+// ---------- order-level P/L rollup ----------
+// Amazon profit is calculated order-by-order. Product totals are only a
+// summary of those order calculations; they are never used as the primary
+// source for total COGS/profit. This preserves multi-product orders exactly.
+//
+// IMPORTANT V16 rule:
+//   1) Saved Order ID composition = authoritative for that order.
+//   2) A reusable combo definition = authoritative when the Amazon listing itself
+//      is defined as a bundle.
+//   3) Price-based inference = suggestion only and NEVER affects P/L automatically.
+function expandComboComponents(name, qty, date, visited){
+  visited=visited||{};
+  qty=parseInt(qty,10)||1;
+  if(visited[name]) return null;
+  var comps=state.combos[name];
+  if(!comps || !comps.length) return [{product:name,qty:qty}];
+  var next=Object.assign({},visited);
+  next[name]=true;
+  var out=[];
+  for(var i=0;i<comps.length;i++){
+    var c=comps[i];
+    var childQty=(parseInt(c.qty,10)||1)*qty;
+    var expanded=expandComboComponents(c.component,childQty,date,next);
+    if(!expanded) return null;
+    out=out.concat(expanded);
+  }
+  return out;
+}
+function normalizeComponents(components){
+  var out=[];
+  (components||[]).forEach(function(c){
+    if(!c || !c.product) return;
+    var qty=parseInt(c.qty,10)||1;
+    var cc=parseFloat(c.cost);
+    var same=out.find(function(x){return x.product===c.product && ((isFinite(cc)&&isFinite(x.cost)) ? Math.abs(x.cost-cc)<0.000001 : (!isFinite(cc)&&!isFinite(x.cost)));});
+    if(same) same.qty+=qty; else out.push({product:c.product,qty:qty,cost:(isFinite(cc)&&cc>=0?cc:undefined)});
+  });
+  return out;
+}
+function getOrderSourceComponents(o){
+  var out=[];
+  Object.keys(o.products||{}).forEach(function(k){
+    var p=o.products[k];
+    var product=groupNameFor(rawKey('amazon',p.name),p.name);
+    var qty=parseInt(p.qty,10)||1;
+    var expanded=expandComboComponents(product,qty,o.date);
+    if(expanded) out=out.concat(expanded);
+    else out.push({product:product,qty:qty});
+  });
+  return normalizeComponents(out);
+}
+function getOrderCostBreakdown(o){
+  var saved=state.orderCompositions[orderCompositionKey('amazon',o.id)];
+  var components=[];
+  var other=0;
+  var isSpecial=!!(saved && saved.components && saved.components.length);
+  var inferredMulti=!!(o.inference && o.inference.isLikelyMulti);
+  var sourceCount=Object.keys(o.products||{}).length;
+  var sourceMulti=sourceCount>1 || Object.keys(o.products||{}).some(function(k){return (o.products[k].lineCount||0)>1;});
+
+  if(isSpecial){
+    // Explicit Order ID composition is authoritative.
+    components=normalizeComponents(saved.components).map(function(c){
+      var savedCost=parseFloat(c.cost);
+      return {product:c.product,qty:c.qty,cost:(isFinite(savedCost)&&savedCost>=0?savedCost:getEffectiveCost(c.product,o.date))};
+    });
+    other=parseFloat(saved.otherCharge)||0;
+  } else {
+    // A reusable combo definition is authoritative for the listing itself.
+    components=getOrderSourceComponents(o).map(function(c){
+      return {product:c.product,qty:c.qty,cost:getEffectiveCost(c.product,o.date)};
+    });
+
+    // If the settlement suggests that the physical order contains more items
+    // than the listing row reveals, do NOT silently apply the price guess.
+    // Leave the order unresolved until the user defines it by Order ID.
+    if((inferredMulti || sourceMulti) && !isSpecial){
+      var expandedSource=components;
+      var sourceNames=Object.keys(o.products||{});
+      var hasKnownCombo=sourceNames.some(function(k){
+        var product=groupNameFor(rawKey('amazon',o.products[k].name),o.products[k].name);
+        return !!(state.combos[product] && state.combos[product].length);
+      });
+      if(!hasKnownCombo){
+        return {components:expandedSource,other:0,complete:false,cogs:null,isSpecial:false,unresolved:true,reason:'multi-product order requires Order ID confirmation'};
+      }
+    }
+  }
+
+  var complete=components.length>0 && components.every(function(c){return isFinite(c.cost) && c.cost>=0;});
+  var cogs=complete ? components.reduce(function(sum,c){return sum+c.cost*c.qty;},0)+other : null;
+  return {components:components,other:other,complete:complete,cogs:cogs,isSpecial:isSpecial,unresolved:false};
+}
+function amazonOrderRows(range){
+  var rows=[];
+  state.history.filter(function(e){return e.platform==='amazon' && reportOverlaps(e,range);}).forEach(function(e){
+    var rep=state.cache[e.key]; if(!rep || !rep.orders) return;
+    rep.orders.forEach(function(o){if(dateInRange(o.date,range)) rows.push({reportKey:e.key,order:o,breakdown:getOrderCostBreakdown(o)});});
+  });
+  return rows;
+}
+function ensureGroup(groups,name){
+  if(!groups[name]) groups[name]={name:name,units:0,net:0,grossValue:0,cogs:0,costedUnits:0,missingUnits:0,platforms:{},listingCount:0,orderCount:0};
+  return groups[name];
+}
+function addGroupPlatform(g,platform){g.platforms[platform]=true;}
+function buildAmazonOrderGroups(groups,range){
+  amazonOrderRows(range).forEach(function(row){
+    var o=row.order, b=row.breakdown;
+    // Keep the product summary aligned with Amazon's listing rows. A saved
+    // special/combo order replaces the cost calculation for that order, but
+    // must NOT add its component quantities on top of the original listing
+    // quantity. This was the source of the repeated +3 AC / +1 1100 units.
+    var sourceNames=Object.keys(o.products||{});
+    var isSpecial=!!(b && b.isSpecial);
+    var summaryComps=[];
+    if(isSpecial && sourceNames.length){
+      sourceNames.forEach(function(k){
+        var p=o.products[k];
+        var product=groupNameFor(rawKey('amazon',p.name),p.name);
+        summaryComps.push({product:product,qty:parseInt(p.qty,10)||1});
+      });
+    } else {
+      summaryComps=(b.components||[]).map(function(c){return {product:c.product,qty:c.qty};});
+    }
+    summaryComps=normalizeComponents(summaryComps);
+    if(!summaryComps.length) return;
+
+    var weights=summaryComps.map(function(c){
+      var cost=getCostAtDate(c.product,o.date);
+      return Math.max(0.01,(isFinite(cost)?cost:0)*c.qty);
+    });
+    var wt=weights.reduce(function(a,v){return a+v;},0)||summaryComps.length||1;
+    var remainingNet=o.net||0;
+    var remainingGross=o.productCharges||o.net||0;
+    summaryComps.forEach(function(c,idx){
+      var g=ensureGroup(groups,c.product);
+      var share=(idx===summaryComps.length-1)?remainingNet:(o.net||0)*(weights[idx]/wt);
+      var grossShare=(idx===summaryComps.length-1)?remainingGross:(o.productCharges||o.net||0)*(weights[idx]/wt);
+      remainingNet-=share; remainingGross-=grossShare;
+      g.units += c.qty;
+      g.net += share;
+      g.grossValue += grossShare;
+      g.orderCount += 1;
+      addGroupPlatform(g,'amazon');
+      g.listingCount += 1;
+      if(b.complete){
+        var summaryCost=getCostAtDate(c.product,o.date);
+        var componentCogs=isSpecial ? 0 : (isFinite(summaryCost)?summaryCost*c.qty:0);
+        // For a special order, assign the whole authoritative order COGS to
+        // its original Amazon listing row. This keeps product units stable and
+        // guarantees that displayed COGS sums to the order-level P/L.
+        if(isSpecial && idx===summaryComps.length-1){
+          componentCogs=b.cogs||0;
+        }
+        if(isSpecial && idx!==summaryComps.length-1){ componentCogs=0; }
+        g.cogs += componentCogs;
+        if(isSpecial){ g.costedUnits += c.qty; }
+        else if(isFinite(summaryCost)){ g.costedUnits += c.qty; }
+      } else {
+        g.missingUnits += c.qty;
+      }
+    });
+  });
+}
+function buildFlipkartGroups(groups,range){
+  state.history.filter(function(e){return e.platform==='flipkart' && reportOverlaps(e,range);}).forEach(function(e){
+    var rep=state.cache[e.key]; if(!rep) return;
+    filteredProducts(rep,range).forEach(function(p){
+      var gname=groupNameFor(rawKey(rep.platform,p.name),p.name);
+      var g=ensureGroup(groups,gname);
+      var units=p.netUnits!==undefined?p.netUnits:(p.grossUnits||0);
+      g.units+=units; g.net+=p.net; g.grossValue+=(p.grossValue||0); g.orderCount+=units; g.listingCount+=1; addGroupPlatform(g,'flipkart');
+      var cost=getEffectiveCost(gname,rep.periodStart);
+      if(cost===null) g.missingUnits+=units; else {g.cogs+=cost*units;g.costedUnits+=units;}
+    });
+  });
+}
+function buildMasterGroups(range, platformOnly){
+  var groups={};
+  if(!platformOnly || platformOnly==='amazon') buildAmazonOrderGroups(groups,range);
+  if(!platformOnly || platformOnly==='flipkart') buildFlipkartGroups(groups,range);
+  Object.keys(groups).forEach(function(k){
+    if(groups[k].units<0) groups[k].units=0;
+    if(Math.abs(groups[k].net)<0.005) groups[k].net=0;
+    if(groups[k].grossValue<0) groups[k].grossValue=0;
+  });
+  return Object.keys(groups).map(function(k){return groups[k];}).filter(function(g){return g.units>0 || Math.abs(g.net)>0.005;}).sort(function(a,b){return b.net-a.net;});
+}
+function getAmazonOrderPLSummary(range){
+  var rows=amazonOrderRows(range), revenue=0,cogs=0,unresolved=0,orderCount=0;
+  rows.forEach(function(r){
+    revenue+=r.order.net||0; orderCount+=1;
+    if(r.breakdown.complete) cogs+=r.breakdown.cogs||0; else unresolved+=1;
+  });
+  return {revenue:revenue,cogs:cogs,profit:revenue-cogs,unresolved:unresolved,orderCount:orderCount};
+}
+
+// ---------- combo detection by price ----------
+// A combo's average selling price usually sits close to the sum of its
+// components' own average selling prices (often a touch below, for the
+// bundle discount). Search each un-grouped product's price against
+// combinations of the others (quantities 0-2, up to 4 items total) and
+// flag close matches as suggestions rather than applying them silently.
+function findSubsetSum(candidates, target){
+  var lower = target * 0.95;
+  var upper = target * 1.35;
+  var best = null;
+  function qtyTotal(chosen){ return chosen.reduce(function(a,c){ return a + c.qty; }, 0); }
+  function search(idx, sum, chosen){
+    if(sum > upper + 0.01) return;
+    var qc = qtyTotal(chosen);
+    if(qc >= 2 && sum >= lower && sum <= upper){
+      if(!best || qc < qtyTotal(best)) best = chosen.slice();
+    }
+    if(idx >= candidates.length || qc >= 4) return;
+    for(var q=0; q<=2; q++){
+      if(q>0) chosen.push({ component:candidates[idx].name, qty:q });
+      search(idx+1, sum + q*candidates[idx].avgValue, chosen);
+      if(q>0) chosen.pop();
+    }
+  }
+  search(0, 0, []);
+  return best;
+}
+function detectCombos(){
+  var groups = buildMasterGroups(null);
+  var priced = groups.map(function(g){
+    return { name:g.name, avgValue: g.units > 0 ? g.grossValue/g.units : 0, isCombo: !!(state.combos[g.name] && state.combos[g.name].length) };
+  }).filter(function(g){ return g.avgValue > 0; });
+
+  var suggestions = [];
+  priced.forEach(function(target){
+    if(target.isCombo) return;
+    var others = priced.filter(function(c){ return c.name !== target.name && !c.isCombo; });
+    if(others.length > 14) return;
+    var match = findSubsetSum(others, target.avgValue);
+    if(match && match.length){
+      var matchedSum = match.reduce(function(s,c){
+        var comp = others.find(function(o){ return o.name === c.component; });
+        return s + comp.avgValue * c.qty;
+      }, 0);
+      suggestions.push({ group:target.name, targetAvg:target.avgValue, matchedSum:matchedSum, components:match });
+    }
+  });
+  return suggestions;
+}
+
+function groupProfit(g){
+  var hasCost=(g.missingUnits||0)<=0.0001;
+  var cogs=g.cogs||0;
+  var trueProfit=(g.net||0)-cogs;
+  var currentCost=getCostAtDate(g.name,null);
+  return {hasCost:hasCost,cogs:cogs,trueProfit:trueProfit,cost:currentCost,missingUnits:g.missingUnits||0};
+}
+
+// ---------- per-platform profit slice (for that platform's dashboard) ----------
+function computePlatformProfit(pf, range){
+  var cogs=0, trueProfit=0, seen={}, missing={};
+  var groups=buildMasterGroups(range, pf);
+  groups.forEach(function(g){
+    seen[g.name]=true;
+    cogs += g.cogs||0;
+    trueProfit += g.net-(g.cogs||0);
+    if((g.missingUnits||0)>0.0001) missing[g.name]=true;
+  });
+  return { cogs:cogs, trueProfit:trueProfit, missingCount:Object.keys(missing).length, totalCount:Object.keys(seen).length };
+}
+
+function renderProductComboManager(groups){
+  var names=groups.map(function(g){return g.name;});
+  var html='<div style="padding:2px 0;">';
+  html+='<p style="font-size:13px;font-weight:600;margin:0 0 5px;">Reusable product combos</p>';
+  html+='<p class="note" style="margin:0 0 10px;">Use this only when a listing should always be treated as a bundle of products. For an unusual Amazon order, use <strong>Order P/L</strong> and define it by Order ID instead.</p>';
+  if(!names.length){ html+='<p class="note">Upload a report first.</p></div>'; return html; }
+  html+='<div style="overflow:auto;"><table style="width:100%;font-size:12.5px;"><thead><tr><th>Product / listing</th><th>Current combo</th><th class="num">Cost</th><th></th></tr></thead><tbody>';
+  names.forEach(function(n){
+    var comps=state.combos[n]||[];
+    var desc=comps.length?comps.map(function(c){return escAttr(c.component)+' × '+c.qty;}).join(' + '):'<span class="note">Not a combo</span>';
+    var comboCost=comps.length?getEffectiveCost(n,null):getCostAtDate(n,null);
+    html+='<tr><td class="name">'+escAttr(n)+'</td><td>'+desc+'</td><td class="num">'+(comboCost===null?'—':fmtINR(comboCost))+'</td><td class="num"><button type="button" class="link-btn combo-edit-btn" data-group="'+escAttr(n)+'" style="color:var(--teal);">'+(comps.length?'Edit combo':'Define combo')+'</button>'+(comps.length?' <button type="button" class="link-btn combo-delete-btn" data-group="'+escAttr(n)+'" style="color:var(--red,#a43b2f);">Clear</button>':'')+'</td></tr>';
+    if(state.editingCombo===n) html+=comboEditorRowHtml(n,names);
+  });
+  html+='</tbody></table></div></div>';
+  return html;
+}
+
+// ---------- render: everything ----------
+function renderAll(){
+  var html = '';
+  var range = computeRange();
+  var periods = buildAvailablePeriods();
+
+  html += filterToolbarHTML(periods);
+
+  html += '<div class="section chart-card"><div class="row-between"><h2 style="margin:0;">Your products</h2>';
+  html += '<span class="meta" style="font-family:\'IBM Plex Mono\',monospace;font-size:12px;color:var(--ink-soft);">' + rangeLabel(range) + ', all platforms, combined</span>';
+  html += '</div><div id="masterTable"></div></div>';
+
+  ['amazon','flipkart'].forEach(function(pf){
+    var reports = state.history.filter(function(e){ return e.platform === pf; });
+    if(!reports.length) return;
+    html += platformSectionHTML(pf, reports);
+  });
+
+  html += '<datalist id="groupOptions"></datalist>';
+
+  mainArea.innerHTML = html;
+
+  mainArea.querySelectorAll('.filter-pill').forEach(function(el){
+    el.addEventListener('click', function(){
+      state.filter.mode = el.getAttribute('data-mode');
+      renderAll();
+    });
+  });
+  var monthSel = document.getElementById('filterMonth');
+  if(monthSel) monthSel.addEventListener('change', function(){ state.filter.month = monthSel.value; renderAll(); });
+  var yearSel = document.getElementById('filterYear');
+  if(yearSel) yearSel.addEventListener('change', function(){ state.filter.year = yearSel.value; renderAll(); });
+  var fromInput = document.getElementById('filterFrom');
+  var toInput = document.getElementById('filterTo');
+  if(fromInput) fromInput.addEventListener('change', function(){ state.filter.from = fromInput.value; renderAll(); });
+  if(toInput) toInput.addEventListener('change', function(){ state.filter.to = toInput.value; renderAll(); });
+
+  mainArea.querySelectorAll('.history-item').forEach(function(el){
+    el.addEventListener('click', function(e){
+      if(e.target.classList.contains('del')) return;
+      var pf = el.getAttribute('data-pf');
+      state.selected[pf] = el.getAttribute('data-key');
+      renderAll();
+    });
+  });
+  mainArea.querySelectorAll('.del').forEach(function(el){
+    el.addEventListener('click', async function(e){
+      e.stopPropagation();
+      var key = el.getAttribute('data-delkey');
+      var pf = el.getAttribute('data-pf');
+      await deleteReport(key);
+      delete state.cache[key];
+      if(state.selected[pf] === key) state.selected[pf] = null;
+      await refresh();
+    });
+  });
+
+  renderMasterProducts();
+  ['amazon','flipkart'].forEach(function(pf){
+    if(state.selected[pf]) renderPlatformCharts(pf);
+  });
+}
+
+function filterToolbarHTML(periods){
+  var f = state.filter;
+  var html = '<div class="section"><div class="row-between" style="margin-bottom:0.75rem;"><h2 style="margin:0;font-size:15px;">Analyse</h2></div>';
+  html += '<div class="tabs">';
+  [['all','All time'],['month','By month'],['year','By year'],['custom','Custom range']].forEach(function(m){
+    html += '<div class="tab filter-pill ' + (f.mode===m[0]?'active':'') + '" data-mode="' + m[0] + '">' + m[1] + '</div>';
+  });
+  html += '</div>';
+
+  if(f.mode === 'month'){
+    html += '<select id="filterMonth">';
+    if(!periods.months.length) html += '<option value="">No data yet</option>';
+    periods.months.forEach(function(ym){
+      html += '<option value="' + ym + '" ' + (f.month===ym?'selected':'') + '>' + monthLabel(ym) + '</option>';
+    });
+    html += '</select>';
+    if(!f.month && periods.months.length){ f.month = periods.months[periods.months.length-1]; }
+  } else if(f.mode === 'year'){
+    html += '<select id="filterYear">';
+    if(!periods.years.length) html += '<option value="">No data yet</option>';
+    periods.years.forEach(function(y){
+      html += '<option value="' + y + '" ' + (f.year===y?'selected':'') + '>' + y + '</option>';
+    });
+    html += '</select>';
+    if(!f.year && periods.years.length){ f.year = periods.years[periods.years.length-1]; }
+  } else if(f.mode === 'custom'){
+    html += '<span style="font-size:13px;color:var(--ink-soft);margin-right:6px;">From</span>';
+    html += '<input type="date" id="filterFrom" value="' + (f.from||'') + '" style="margin-right:12px;padding:6px 8px;border:1px solid var(--rule);border-radius:6px;font-family:\'IBM Plex Mono\',monospace;font-size:12.5px;background:var(--paper-raised);color:var(--ink);">';
+    html += '<span style="font-size:13px;color:var(--ink-soft);margin-right:6px;">To</span>';
+    html += '<input type="date" id="filterTo" value="' + (f.to||'') + '" style="padding:6px 8px;border:1px solid var(--rule);border-radius:6px;font-family:\'IBM Plex Mono\',monospace;font-size:12.5px;background:var(--paper-raised);color:var(--ink);">';
+  }
+  html += '</div>';
+  return html;
+}
+
+function platformSectionHTML(pf, reports){
+  var html = '';
+  html += '<div class="platform-head"><span class="platform-dot ' + pf + '"></span><h2>' + platLabel(pf) + '</h2></div>';
+
+  var range = computeRange();
+
+  if(pf === 'amazon'){
+    html += amazonKpiHTML(range);
+  } else {
+    html += flipkartKpiHTML(range);
+  }
+
+  var reportsInRange = reports.filter(function(e){ return reportOverlaps(e, range); });
+  if(range && reportsInRange.length !== reports.length){
+    html += '<p class="note" style="margin-top:-4px;">Showing ' + reportsInRange.length + ' of ' + reports.length + ' saved ' + platLabel(pf) + ' report(s) that overlap ' + rangeLabel(range) + '.</p>';
+  }
+
+  var profit = computePlatformProfit(pf, range);
+  if(range){
+    var legacyPartial = reportsInRange.some(function(e){ var r=state.cache[e.key]; return r && !r.dailyProducts; });
+    if(legacyPartial && (range.from > reportsInRange[0].periodStart || range.to < reportsInRange[0].periodEnd)){
+      html += '<p class="note" style="color:var(--gold);">Some older saved reports were created before date-level product data was stored. Re-upload those reports to make custom-range product profit exact.</p>';
+    }
+  }
+  html += '<div class="section"><div class="row-between"><h2 style="margin:0;font-size:15px;">Profit after cost of goods</h2>';
+  if(profit.missingCount > 0){
+    html += '<span class="meta" style="font-family:\'IBM Plex Mono\',monospace;font-size:12px;color:var(--gold);">' + profit.missingCount + ' of ' + profit.totalCount + ' products missing a cost price</span>';
+  }
+  html += '</div><div class="kpis" style="grid-template-columns:repeat(2,1fr);">';
+  html += kpiCard('Cost of goods sold', -profit.cogs, 'neg');
+  html += kpiCard('True profit', profit.trueProfit, profit.trueProfit >= 0 ? 'pos' : 'neg');
+  html += '</div></div>';
+
+  html += '<div class="section chart-card"><h2>Net ' + (pf === 'amazon' ? 'settled' : 'earnings') + ' by period</h2>';
+  html += '<div style="position:relative;height:220px;"><canvas id="trendChart_' + pf + '" role="img" aria-label="Line chart of net earnings per settlement period for ' + platLabel(pf) + '"></canvas></div>';
+  html += '</div>';
+
+  html += '<div class="section"><h2 style="font-size:15px;">Report history</h2>';
+  html += '<p class="note" style="margin-top:-6px;">Saved reports stay in this browser until you remove them. Use the × beside a report, or "Delete saved report" above, when you no longer need it.</p>';
+  var sorted = reports.slice().sort(function(a,b){ return String(b.periodStart||'').localeCompare(String(a.periodStart||'')); });
+  sorted.forEach(function(e){
+    html += '<div class="history-item ' + (e.key===state.selected[pf]?'selected':'') + '" data-key="' + e.key + '" data-pf="' + pf + '">';
+    html += '<div><span>' + e.periodStart + ' \u2192 ' + e.periodEnd + '</span></div>';
+    html += '<div style="display:flex;align-items:center;gap:14px;">';
+    html += '<span class="meta">' + fmtINR(e.net) + '</span>';
+    html += '<button class="del" data-delkey="' + e.key + '" data-pf="' + pf + '" title="Remove this report">&times;</button>';
+    html += '</div></div>';
+  });
+  html += '</div>';
+
+  html += '<div class="section chart-card"><div class="row-between"><h2 style="margin:0;font-size:15px;">Day by day</h2>';
+  html += '<span class="meta" style="font-family:\'IBM Plex Mono\',monospace;font-size:12px;color:var(--ink-soft);" id="selectedRangeLabel_' + pf + '"></span>';
+  html += '</div>';
+  html += '<div class="legend-row"><span><span class="dot" style="background:#2A6FB5;"></span>Gross value</span><span><span class="dot" style="background:#A8422F;"></span>Fees + refunds</span><span><span class="dot" style="background:#1F6E56;"></span>Net earnings</span></div>';
+  html += '<div style="position:relative;height:220px;"><canvas id="dailyChart_' + pf + '" role="img" aria-label="Stacked bar and line chart of gross value, deductions, and net earnings per day for the selected ' + platLabel(pf) + ' report"></canvas></div>';
+  html += '</div>';
+
+  html += '<div class="section chart-card"><h2 style="font-size:15px;">Raw listings \u2014 selected report</h2>';
+  if(pf === 'flipkart'){
+    html += '<p class="note" style="margin-top:-6px;">Assign each listing to a product group so it rolls up correctly in "Your products" above \u2014 Flipkart often splits one product across several listings (colour, pack size).</p>';
+  }
+  html += '<div id="productTable_' + pf + '"></div>';
+  html += '</div>';
+
+  return html;
+}
+
+function amazonKpiHTML(range){
+  var t = totalsFor('amazon', range);
+  var html = '<div class="kpis">';
+  html += kpiCard('Order revenue', t.orderRevenue, null);
+  html += kpiCard('Refunds paid out', t.refunds, 'neg');
+  html += kpiCard('Reimbursements & credits', t.reimbursements, t.reimbursements >= 0 ? 'pos' : 'neg');
+  html += kpiCard('Net settled', t.net, t.net >= 0 ? 'pos' : 'neg');
+  html += '</div>';
+  var ffr = t.byType['Fulfillment Fee Refund'] || 0;
+  var inv = t.byType['Inventory Reimbursement'] || 0;
+  var other = t.byType['Other'] || 0;
+  html += '<p class="note">Amazon charged ' + fmtINR(t.fees) + ' in total fees, already reflected above. Reimbursements & credits break down as fulfillment fee refunds ' + fmtINR(ffr) + ', inventory reimbursements ' + fmtINR(inv) + ', other adjustments ' + fmtINR(other) + '. For Amazon P/L, this dashboard uses only <strong>Deferred → Order Payment</strong> rows. Returns, refunds, fee rows, reimbursements and other charges are excluded from the P/L basis. ' + (t.deferredCount ? (t.deferredCount + ' deferred row(s), totalling ' + fmtINR(t.deferredTotal) + ', are used as the current P/L basis.') : '') + '</p>';
+  return html;
+}
+
+function flipkartKpiHTML(range){
+  var t = totalsFor('flipkart', range);
+  var returnsNeg = -t.returns;
+  var html = '<div class="kpis">';
+  html += kpiCard('Gross sales', t.grossSales, null);
+  html += kpiCard('Returns & cancellations', returnsNeg, 'neg');
+  html += kpiCard('Total expenses', -t.expenses, 'neg');
+  html += kpiCard('Net earnings', t.net, t.net >= 0 ? 'pos' : 'neg');
+  html += '</div>';
+  html += '<p class="note">Returns & cancellations break down as RTO (logistics return) ' + fmtINR(t.rto) + ', customer returns (RVP) ' + fmtINR(t.rvp) + ', cancellations ' + fmtINR(t.cancelled) + '. Net earnings also includes ' + fmtINR(t.rewards + t.itc) + ' in rewards and input tax credits. Figures are taken directly from Flipkart\'s own Overall Summary, so they reconcile exactly to net earnings.</p>';
+  return html;
+}
+
+function totalsFor(pf, range){
+  var totals = null;
+  state.history.filter(function(e){ return e.platform===pf && reportOverlaps(e, range); }).forEach(function(e){
+    var rep = state.cache[e.key];
+    if(!rep) return;
+    var part = filteredTotals(rep, range);
+    if(!part) return;
+    if(!totals){
+      totals = JSON.parse(JSON.stringify(part));
+      if(pf === 'amazon') totals.byType = Object.assign({}, part.byType || {});
+    } else {
+      Object.keys(part).forEach(function(k){
+        if(k === 'byType') Object.keys(part.byType || {}).forEach(function(t){ totals.byType[t]=(totals.byType[t]||0)+part.byType[t]; });
+        else totals[k]=(totals[k]||0)+(part[k]||0);
+      });
+    }
+  });
+  return totals || (pf === 'amazon'
+    ? { orderRevenue:0, refunds:0, reimbursements:0, fees:0, byType:{}, net:0, deferredCount:0, deferredTotal:0 }
+    : { grossSales:0, returns:0, rto:0, rvp:0, cancelled:0, expenses:0, rewards:0, itc:0, net:0 });
+}
+
+// ---------- master products table ----------
+function renderMasterProducts(){
+  var container = document.getElementById('masterTable');
+  if(!container) return;
+  var currentRange = computeRange();
+  var candidateCount = getAmazonMultiItemCandidates(currentRange).length;
+  if(candidateCount && !state.showManage && !state._manageAutoOpened){ state.showManage=true; state._manageAutoOpened=true; }
+  var groups = buildMasterGroups(currentRange);
+  if(!groups.length){
+    container.innerHTML = '<p class="note">Upload a report to see your products here.</p>';
+    return;
+  }
+  var allNames = groups.map(function(g){ return g.name; });
+
+  var totalRevenue = 0, totalCogs = 0, totalTrueProfit = 0, missingCostCount = 0;
+  groups.forEach(function(g){
+    var profit = groupProfit(g);
+    totalRevenue += g.net;
+    totalCogs += profit.cogs || 0;
+    if(!profit.hasCost) missingCostCount++;
+    totalTrueProfit += profit.trueProfit;
+  });
+  var amazonSummary = getAmazonOrderPLSummary(currentRange);
+  var amazonUnresolved = amazonSummary.unresolved;
+  if(!state.history.some(function(e){return e.platform==='amazon' && reportOverlaps(e,currentRange);})) amazonUnresolved=0;
+
+  var topHtml = '<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:1rem;">';
+  topHtml += kpiCard('Total net earnings', totalRevenue, totalRevenue >= 0 ? 'pos' : 'neg');
+  topHtml += kpiCard('Total cost of goods', -totalCogs, 'neg');
+  topHtml += kpiCard(amazonUnresolved ? 'True profit (provisional)' : 'Total true profit', totalTrueProfit, totalTrueProfit >= 0 ? 'pos' : 'neg');
+  topHtml += '</div>';
+  if(missingCostCount > 0){
+    topHtml += '<p class="note" style="margin-top:-6px;">' + missingCostCount + ' of ' + groups.length + ' products still need a cost price \u2014 true profit excludes cost for those until set.</p>';
+  }
+  if(amazonUnresolved > 0){
+    topHtml += '<p class="note" style="margin-top:-4px;color:var(--gold);">⚠ ' + amazonUnresolved + ' Amazon order(s) are unresolved for COGS because the settlement suggests multiple physical items. Define each Order ID in <strong>Order P/L</strong> before treating the profit figure as final.</p>';
+  }
+
+  topHtml += '<p class="note" style="margin-top:-4px;">Amazon P/L is calculated <strong>order-by-order</strong> from Deferred → Order Payment → Total (INR). COGS uses saved order cost snapshots for defined orders; normal orders use the current product cost/unit. Saved Order ID compositions and reusable product-combo definitions are authoritative; price matching is only a review suggestion and never changes P/L automatically. Unconfirmed multi-product orders remain unresolved until you define them in Order P/L. Returns, refunds and other Amazon settlement charges are not included here.</p>';
+  var suggestionMatches = [];
+  state.history.filter(function(e){return e.platform==='amazon' && reportOverlaps(e,currentRange);}).forEach(function(e){
+    var rep=state.cache[e.key]; if(!rep || !rep.orders) return;
+    rep.orders.forEach(function(o){
+      if(o.inference && o.inference.components && o.inference.components.length && o.inference.isLikelyMulti && !state.orderCompositions[orderCompositionKey('amazon',o.id)]) suggestionMatches.push(o);
+    });
+  });
+  if(suggestionMatches.length){
+    topHtml += '<details style="margin:10px 0;border:1px solid var(--rule);border-radius:8px;padding:8px 10px;background:var(--paper-raised);"><summary style="cursor:pointer;font-size:12.5px;font-weight:600;">Price-based suggestions ('+suggestionMatches.length+') — review only</summary>';
+    topHtml += '<div style="margin-top:8px;max-height:220px;overflow:auto;">';
+    suggestionMatches.slice(0,30).forEach(function(o){
+      var desc=o.inference.components.map(function(c){return c.product+' × '+c.qty;}).join(' + ');
+      topHtml += '<div style="padding:6px 0;border-top:1px solid var(--rule);font-size:11.5px;"><strong>'+escAttr(o.id)+'</strong> · '+fmtINR(o.productCharges)+' → '+escAttr(desc)+' · '+o.inference.confidence+' confidence</div>';
+    });
+    topHtml += '</div></details>';
+  }
+  var reviewCount = getAmazonMultiItemCandidates(currentRange).length;
+  if(reviewCount) topHtml += '<div style="border:1px solid var(--gold);background:var(--gold-soft);border-radius:8px;padding:10px 12px;margin:10px 0;"><strong>⚠ '+reviewCount+' order(s) may contain multiple products.</strong> The script now tries to identify repeated quantities and multi-product compositions from Total product charges. Ambiguous orders remain for review. Open <strong>Manage products & order P/L</strong> below to confirm or edit them.</div>';
+
+  topHtml += '<div class="row-between" style="margin:1rem 0 0.75rem;">';
+  topHtml += '<button type="button" class="link-btn" id="exportExcelBtn" style="color:var(--teal);">Export to Excel &darr;</button>';
+  var manageLabel = 'Manage products & order P/L';
+  if(state.pendingGroupRules.length) manageLabel += ' &middot; ' + state.pendingGroupRules.length + ' pending';
+  topHtml += '<button type="button" class="link-btn" id="toggleManageBtn">' + (state.showManage ? 'Hide' : manageLabel) + '</button>';
+  topHtml += '</div>';
+
+  if(state.reconciledNote && state.reconciledNote.length){
+    topHtml += '<p class="note" style="color:var(--teal);margin-top:-2px;">Applied ' + state.reconciledNote.length + ' pending grouping(s) now that the listing(s) showed up in your data: ' + state.reconciledNote.join('; ') + '</p>';
+    state.reconciledNote = null;
+  }
+
+  if(state.showManage){
+    topHtml += '<div style="border:1px solid var(--rule);border-radius:var(--radius);padding:12px 14px;margin-bottom:0.75rem;background:var(--paper);">';
+    topHtml += '<div style="display:flex;gap:6px;border-bottom:1px solid var(--rule);padding-bottom:8px;margin-bottom:12px;">';
+    topHtml += '<p class="note" style="margin:0 0 9px;">Product combos are for reusable listing bundles. For Amazon orders where the listing hides another item, the system matches the Order ID from product charges and shows the composition for verification.</p>';
+    topHtml += '<button type="button" class="link-btn manage-tab-btn" data-tab="orders" style="'+(state.manageTab==='orders'?'background:var(--ink);color:white;border-radius:999px;padding:5px 11px;':'')+'">Order P/L</button>';
+    topHtml += '<button type="button" class="link-btn manage-tab-btn" data-tab="combos" style="'+(state.manageTab==='combos'?'background:var(--ink);color:white;border-radius:999px;padding:5px 11px;':'')+'">Product combos</button>';
+    topHtml += '</div>';
+    if(state.manageTab==='orders'){
+      topHtml += '<p style="font-size:13px;font-weight:500;margin:0 0 6px;">Amazon multi-product / combo orders</p>';
+    topHtml += '<p class="note" style="margin:0 0 8px;">Do <strong>not</strong> create a combo product name. Define the actual contents of the <strong>Order ID</strong>: products + quantities + the cost used for that order. This is what changes the P/L.</p>';
+
+    topHtml += '<p style="font-size:13px;font-weight:500;margin:14px 0 6px;">Bulk group listings</p>';
+    topHtml += '<p class="note" style="margin:0 0 8px;">One line per group. List the listing names exactly as they appear, comma-separated, and optionally name the group with <code>=&gt;</code>. Matching ignores case.<br>Example: <code>PS CHUTNEY 2, PS CHUTNEY 3, pan300ca =&gt; Chutney Jar 300ml</code><br>If a name isn\'t in any uploaded report yet, the rule is saved and applied automatically the moment that listing appears in a future upload.</p>';
+    topHtml += '<textarea id="bulkGroupText" rows="4" style="width:100%;font-family:\'IBM Plex Mono\',monospace;font-size:12.5px;padding:8px;border:1px solid var(--rule);border-radius:6px;background:var(--paper-raised);color:var(--ink);" placeholder="pan300ca1100, millchutney 1 => Mill Chutney Jar"></textarea>';
+    topHtml += '<div style="margin-top:8px;"><button type="button" class="link-btn" id="applyBulkGroupBtn" style="color:var(--teal);">Apply groupings</button></div>';
+    if(state.bulkGroupResult){
+      var r = state.bulkGroupResult;
+      if(r.matched.length) topHtml += '<p class="note" style="margin-top:8px;color:var(--teal);">Matched ' + r.matched.length + ': ' + r.matched.join('; ') + '</p>';
+      if(r.unmatched.length){
+        topHtml += '<p class="note" style="color:var(--gold);">Not seen yet, saved as pending \u2014 will apply automatically once uploaded: ' + r.unmatched.join(', ') + '</p>';
+      }
+    }
+    if(state.pendingGroupRules.length){
+      topHtml += '<p class="note" style="margin-top:8px;">Waiting for these listings to appear: ' + state.pendingGroupRules.map(function(rule){ return rule.name + ' \u2192 ' + rule.group; }).join('; ') + '</p>';
+    }
+    topHtml += '</div>';
+      topHtml += '<div id="orderCompositionPanel"></div>';
+    } else {
+      topHtml += renderProductComboManager(groups);
+    }
+    topHtml += '</div>';
+  }
+
+  var rows = groups.map(function(g){
+    var profit = groupProfit(g);
+    var profitCell = !profit.hasCost
+      ? '<span style="color:var(--ink-faint);">set cost &rarr;</span>'
+      : '<span class="' + (profit.trueProfit >= 0 ? 'pos-text' : 'neg-text') + '">' + fmtINR(profit.trueProfit) + '</span>';
+    var platBadges = Object.keys(g.platforms).map(function(p){ return '<span class="plat-badge ' + p + '" style="margin-right:4px;">' + p + '</span>'; }).join('');
+    var listingNote = g.listingCount > Object.keys(g.platforms).length ? ' <span class="note" style="display:inline;">(' + g.listingCount + ' listings)</span>' : '';
+    var baseCost=parseFloat(state.costCatalog[g.name]);
+    var hasBase=isFinite(baseCost) && baseCost>=0;
+    var costCell = '<div style="display:flex;gap:7px;align-items:center;justify-content:flex-end;flex-wrap:wrap;">' +
+      '<label style="font-size:11px;white-space:nowrap;">Cost/unit <input type="number" class="pl-inline-cost" data-group="' + escAttr(g.name) + '" min="0" step="0.01" value="' + (hasBase ? baseCost : '') + '" placeholder="0" style="width:90px;padding:5px 6px;"></label>' +
+      '<button type="button" class="link-btn pl-inline-save" data-group="' + escAttr(g.name) + '" style="color:var(--teal);">Save</button>' +
+      '</div>';
+    var rowHtml = '<tr><td class="name">' + g.name + '<br>' + platBadges + listingNote + '</td>' +
+      '<td class="num">' + fmtNum(g.units) + '</td>' +
+      '<td class="num">' + fmtINR(g.net) + '</td>' +
+      '<td class="num">' + costCell + '</td>' +
+      '<td class="num">' + (profit.hasCost ? fmtINR(-profit.cogs) : '—') + '</td>' +
+      '<td class="num">' + profitCell + '</td></tr>';
+    if(state.editingCost === g.name){ rowHtml += plEditorRowHtml(g.name); }
+    return rowHtml;
+  }).join('');
+
+  container.innerHTML = topHtml +
+    '<table><thead><tr><th>Product</th><th class="num">Units sold</th><th class="num">Net earnings</th><th class="num">Cost / unit</th><th class="num">COGS</th><th class="num">True profit</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table>' +
+    '<p class="note">Product rows summarize the underlying orders. Normal orders use the current product cost/unit. Special multi-product orders use the products and quantities saved against their Order ID. Amazon settlement returns, refunds and fee rows are excluded from this P/L.</p>';
+
+  var exportExcelBtn = document.getElementById('exportExcelBtn');
+  if(exportExcelBtn){
+    exportExcelBtn.addEventListener('click', function(){ exportExcel(); });
+  }
+  var toggleManageBtn = document.getElementById('toggleManageBtn');
+  if(toggleManageBtn){
+    toggleManageBtn.addEventListener('click', function(){
+      state.showManage = !state.showManage;
+      state.bulkGroupResult = null;
+      renderMasterProducts();
+    });
+  }
+  container.querySelectorAll('.manage-tab-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){ state.manageTab=btn.getAttribute('data-tab'); state.editingCombo=null; state.comboDraft=null; renderMasterProducts(); });
+  });
+  container.querySelectorAll('.combo-edit-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.getAttribute('data-group');
+      state.editingCombo=g;
+      state.comboDraft=(state.combos[g]||[]).map(function(c){return {component:c.component,qty:parseInt(c.qty,10)||1};});
+      renderMasterProducts();
+    });
+  });
+  container.querySelectorAll('.combo-delete-btn').forEach(function(btn){
+    btn.addEventListener('click',async function(){
+      var g=btn.getAttribute('data-group');
+      if(!confirm('Clear the combo definition for '+g+'?')) return;
+      delete state.combos[g];
+      await saveCombos(state.combos);
+      state.editingCombo=null; state.comboDraft=null;
+      renderAll();
+    });
+  });
+
+  var applyBulkBtn = document.getElementById('applyBulkGroupBtn');
+  if(applyBulkBtn){
+    applyBulkBtn.addEventListener('click', async function(){
+      var text = document.getElementById('bulkGroupText').value;
+      var result = applyBulkGroups(text);
+      state.bulkGroupResult = result;
+      await saveGroups(state.productGroups);
+      await savePendingGroups(state.pendingGroupRules);
+      renderAll();
+    });
+  }
+
+  container.querySelectorAll('.pl-edit-btn').forEach(function(el){
+    el.addEventListener('click', function(){
+      var g=el.getAttribute('data-group');
+      if(state.editingCost===g){ state.editingCost=null; state.costDraft=null; }
+      else { state.editingCost=g; state.editingCombo=null; state.comboDraft=null; state.costDraft={cost:(state.costCatalog[g]!==undefined?state.costCatalog[g]:'')}; }
+      renderMasterProducts();
+    });
+  });
+
+
+  container.querySelectorAll('.pl-edit-btn').forEach(function(el){
+    el.addEventListener('click',function(){
+      var g=el.getAttribute('data-group');
+      if(state.editingCost===g){ state.editingCost=null; state.costDraft=null; }
+      else { state.editingCost=g; state.costDraft={cost:(state.costCatalog[g]!==undefined?state.costCatalog[g]:'')}; }
+      renderMasterProducts();
+    });
+  });
+  container.querySelectorAll('.pl-inline-save').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      var g=btn.getAttribute('data-group');
+      var costEl=container.querySelector('.pl-inline-cost[data-group="'+CSS.escape(g)+'"]');
+      var cost=parseFloat(costEl && costEl.value);
+      if(!isFinite(cost) || cost<0){ alert('Enter a valid cost price.'); return; }
+      state.costCatalog[g]=cost;
+      delete state.otherChargesCatalog[g];
+      await saveCostCatalog(state.costCatalog);
+      await saveOtherCharges(state.otherChargesCatalog);
+      renderAll();
+    });
+  });
+  wirePLEditor(container);
+  wireComboEditor(container);
+  renderOrderCompositionPanel();
+}
+
+function plEditorRowHtml(groupName){
+  var d=state.costDraft || {cost:''};
+  return '<tr><td colspan="6" style="background:var(--paper);"><div class="cost-history-editor">' +
+    '<div class="row-between"><strong style="font-size:13px;">Cost price — '+escAttr(groupName)+'</strong><span class="meta">Simple setup</span></div>' +
+    '<p class="note" style="margin:6px 0 9px;">Enter the current purchase cost per unit. Amazon settlement charges are not added to this value.</p>' +
+    '<label style="font-size:12px;">Cost price / unit<br><input type="number" id="pl-cost-input" min="0" step="0.01" value="'+(d.cost!==undefined?d.cost:'')+'" placeholder="₹ cost" style="width:150px;margin-top:4px;"></label>' +
+    '<div style="margin-top:9px;"><button type="button" class="link-btn pl-save" style="color:var(--teal);">Save cost</button> · ' +
+    '<button type="button" class="link-btn pl-clear">Clear</button> · ' +
+    '<button type="button" class="link-btn pl-cancel">Cancel</button></div>' +
+    '</div></td></tr>';
+}
+
+function wirePLEditor(container){
+  var save=container.querySelector('.pl-save');
+  if(save) save.addEventListener('click',async function(){
+    var cost=parseFloat((container.querySelector('#pl-cost-input')||{}).value);
+    if(!isFinite(cost) || cost<0){ alert('Enter a valid cost price.'); return; }
+    state.costCatalog[state.editingCost]=cost;
+    // Remove any legacy per-unit other charge so old settings cannot silently
+    // change the current P/L.
+    delete state.otherChargesCatalog[state.editingCost];
+    await saveCostCatalog(state.costCatalog);
+    await saveOtherCharges(state.otherChargesCatalog);
+    state.editingCost=null; state.costDraft=null;
+    renderAll();
+  });
+  var clear=container.querySelector('.pl-clear');
+  if(clear) clear.addEventListener('click',async function(){
+    delete state.costCatalog[state.editingCost];
+    delete state.otherChargesCatalog[state.editingCost];
+    await saveCostCatalog(state.costCatalog);
+    await saveOtherCharges(state.otherChargesCatalog);
+    state.editingCost=null; state.costDraft=null;
+    renderAll();
+  });
+  var cancel=container.querySelector('.pl-cancel');
+  if(cancel) cancel.addEventListener('click',function(){ state.editingCost=null; state.costDraft=null; renderMasterProducts(); });
+}
+
+function comboEditorRowHtml(groupName, allNames){
+  var options = allNames.filter(function(n){ return n !== groupName && !(state.combos[n] && state.combos[n].length); });
+  var draft = state.comboDraft || [];
+  var rowsHtml = draft.map(function(c, idx){
+    var selOptions = options.map(function(o){ return '<option value="' + escAttr(o) + '" ' + (o===c.component?'selected':'') + '>' + o + '</option>'; }).join('');
+    return '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">' +
+      '<select class="combo-component-select" data-idx="' + idx + '" style="flex:1;font-family:\'Inter\',sans-serif;font-size:12.5px;padding:5px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--paper-raised);color:var(--ink);">' + selOptions + '</select>' +
+      '<span class="note" style="margin:0;">\u00d7</span>' +
+      '<input type="number" class="combo-qty-input" data-idx="' + idx + '" min="1" step="1" value="' + c.qty + '" style="width:60px;text-align:right;font-family:\'IBM Plex Mono\',monospace;font-size:12.5px;padding:5px 6px;border:1px solid var(--rule);border-radius:6px;background:var(--paper-raised);color:var(--ink);">' +
+      '<button type="button" class="link-btn combo-remove-btn" data-idx="' + idx + '">remove</button>' +
+      '</div>';
+  }).join('');
+
+  var emptyNote = !options.length && !draft.length
+    ? '<p class="note">No other non-combo products yet to build this combo from \u2014 add costs to your individual products first.</p>' : '';
+
+  return '<tr><td colspan="6" style="background:var(--paper);">' +
+    '<div style="padding:12px 4px;">' +
+    '<p class="note" style="margin:0 0 8px;">What does <strong style="font-style:normal;color:var(--ink);">' + groupName + '</strong> contain?</p>' +
+    emptyNote +
+    '<div id="comboRows">' + rowsHtml + '</div>' +
+    '<button type="button" class="link-btn combo-add-row-btn">+ add component</button>' +
+    ' &middot; <button type="button" class="link-btn combo-save-btn" style="color:var(--teal);">Save combo</button>' +
+    ' &middot; <button type="button" class="link-btn combo-cancel-btn">Cancel</button>' +
+    '</div></td></tr>';
+}
+
+function wireComboEditor(container){
+  var selects = container.querySelectorAll('.combo-component-select');
+  var qtys = container.querySelectorAll('.combo-qty-input');
+  var removes = container.querySelectorAll('.combo-remove-btn');
+  var addRow = container.querySelector('.combo-add-row-btn');
+  var save = container.querySelector('.combo-save-btn');
+  var cancel = container.querySelector('.combo-cancel-btn');
+
+  selects.forEach(function(el){
+    el.addEventListener('change', function(){
+      var idx = parseInt(el.getAttribute('data-idx'),10);
+      state.comboDraft[idx].component = el.value;
+      renderMasterProducts();
+    });
+  });
+  qtys.forEach(function(el){
+    el.addEventListener('change', function(){
+      var idx = parseInt(el.getAttribute('data-idx'),10);
+      state.comboDraft[idx].qty = Math.max(1, parseFloat(el.value) || 1);
+      renderMasterProducts();
+    });
+  });
+  removes.forEach(function(el){
+    el.addEventListener('click', function(){
+      var idx = parseInt(el.getAttribute('data-idx'),10);
+      state.comboDraft.splice(idx,1);
+      renderMasterProducts();
+    });
+  });
+  if(addRow){
+    addRow.addEventListener('click', function(){
+      var g = state.editingCombo;
+      var groups = buildMasterGroups(computeRange());
+      var allNames = groups.map(function(x){ return x.name; });
+      var options = allNames.filter(function(n){ return n !== g && !(state.combos[n] && state.combos[n].length); });
+      var used = state.comboDraft.map(function(c){ return c.component; });
+      var next = options.find(function(o){ return used.indexOf(o) === -1; }) || options[0];
+      if(next) state.comboDraft.push({ component:next, qty:1 });
+      renderMasterProducts();
+    });
+  }
+  if(save){
+    save.addEventListener('click', async function(){
+      var g = state.editingCombo;
+      var clean = (state.comboDraft||[]).filter(function(c){ return c.component; });
+      if(clean.length){
+        state.combos[g] = clean;
+      } else {
+        delete state.combos[g];
+      }
+      await saveCombos(state.combos);
+      state.editingCombo = null;
+      state.comboDraft = null;
+      renderAll();
+    });
+  }
+  if(cancel){
+    cancel.addEventListener('click', function(){
+      state.editingCombo = null;
+      state.comboDraft = null;
+      renderMasterProducts();
+    });
+  }
+}
+
+// ---------- per-platform charts + raw listing table ----------
+var chartInstances = {};
+
+function renderPlatformCharts(pf){
+  renderTrendChart(pf);
+  renderDailyChart(pf);
+  renderRawListings(pf);
+}
+
+function renderTrendChart(pf){
+  var canvasId = 'trendChart_' + pf;
+  var ctx = document.getElementById(canvasId);
+  if(!ctx) return;
+  if(chartInstances[canvasId]){ chartInstances[canvasId].destroy(); }
+
+  var pts = state.history.filter(function(e){ return e.platform===pf && isValidISODate(e.periodStart); })
+    .sort(function(a,b){ return a.periodStart.localeCompare(b.periodStart); });
+  var labels = pts.map(function(e){ return fmtLabel(e.periodStart); });
+  var data = pts.map(function(e){ return e.net; });
+  var color = pf === 'amazon' ? '#2A6FB5' : '#C08A19';
+
+  chartInstances[canvasId] = new Chart(ctx, {
+    type:'line',
+    data: { labels: labels, datasets: [{ label: platLabel(pf), data:data, borderColor:color, backgroundColor:color, pointRadius:5, tension:0.15 }] },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales: {
+        x: { grid: { display:false } },
+        y: { grid: { color:'#e6e4da' }, ticks: { callback: function(v){ return (v<0?'-':'') + '\u20B9' + (Math.abs(v)/1000).toFixed(0) + 'k'; } } }
+      },
+      plugins: { legend: { display:false } }
+    }
+  });
+}
+
+function renderDailyChart(pf){
+  var canvasId = 'dailyChart_' + pf;
+  var ctx = document.getElementById(canvasId);
+  var rangeLabel = document.getElementById('selectedRangeLabel_' + pf);
+  if(!ctx) return;
+  if(chartInstances[canvasId]){ chartInstances[canvasId].destroy(); chartInstances[canvasId] = null; }
+  var rep = state.selected[pf] ? state.cache[state.selected[pf]] : null;
+  if(!rep || !rep.daily || !rep.daily.length) {
+    if(rangeLabel) rangeLabel.textContent = 'No daily order-date data in this report';
+    return;
+  }
+  var range = computeRange();
+  var days = filteredDaily(rep, range).filter(function(d){ return d && isValidISODate(d.date); });
+  if(!days.length) {
+    if(rangeLabel) rangeLabel.textContent = 'No daily order-date data in this range';
+    return;
+  }
+  if(rangeLabel) rangeLabel.textContent = (days[0].date + ' \u2192 ' + days[days.length-1].date);
+
+  var labels = days.map(function(d){ return fmtLabel(d.date); });
+  var gross = days.map(function(d){ return Math.round(d.gross); });
+  var net = days.map(function(d){ return Math.round(d.net); });
+  var deductions = days.map(function(d,i){ return Math.min(0, Math.round((d.net || 0) - (d.gross || 0))); });
+
+  chartInstances[canvasId] = new Chart(ctx, {
+    data: {
+      labels: labels,
+      datasets: [
+        { type:'bar', label:'Gross value', data:gross, backgroundColor:'#2A6FB5', borderRadius:4, stack:'s' },
+        { type:'bar', label:'Deductions / returns', data:deductions, backgroundColor:'#A8422F', borderRadius:4, stack:'s' },
+        { type:'line', label:'Net earnings', data:net, borderColor:'#1F6E56', backgroundColor:'#1F6E56', pointRadius:5, tension:0.15 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales: {
+        x: { stacked:true, grid:{ display:false } },
+        y: { stacked:true, grid:{ color:'#e6e4da' }, ticks:{ callback:function(v){ return (v<0?'-':'') + '\u20B9' + (Math.abs(v)/1000).toFixed(0) + 'k'; } } }
+      },
+      plugins: { legend: { display:false } }
+    }
+  });
+}
+
+function renderRawListings(pf){
+  var container = document.getElementById('productTable_' + pf);
+  if(!container) return;
+  var rep = state.selected[pf] ? state.cache[state.selected[pf]] : null;
+  if(!rep){
+    container.innerHTML = '<p class="note">Select a report from history above to see its listings.</p>';
+    return;
+  }
+
+  var rateBasis = rep.products.length && rep.products[0].rateBasis === 'units' ? 'by units returned' : 'by value refunded';
+  var rows = rep.products.map(function(p){
+    var rateStr = p.refundRate.toFixed(1) + '%';
+    var rk = rawKey(pf, p.name);
+    var groupVal = state.productGroups[rk] || '';
+    var units = p.netUnits !== undefined ? p.netUnits : (p.grossUnits || 0);
+    var savedCost = parseFloat(state.costCatalog[groupVal || p.name]);
+    var hasCost = isFinite(savedCost) && savedCost >= 0;
+    var costCell = '<div style="display:flex;align-items:center;gap:5px;justify-content:flex-end;">' +
+      '<input type="number" class="fk-cost-input" data-costkey="' + escAttr(groupVal || p.name) + '" min="0" step="0.01" value="' + (hasCost ? savedCost : '') + '" placeholder="Cost" style="width:78px;padding:5px 6px;">' +
+      '<button type="button" class="link-btn fk-cost-save" data-costkey="' + escAttr(groupVal || p.name) + '" style="color:var(--teal);">Save</button>' +
+      '</div>';
+    return '<tr><td class="name">' + p.name + '</td>' +
+      '<td class="num"><input type="text" class="group-input" list="groupOptions" placeholder="' + p.name.replace(/"/g,'&quot;') + '" value="' + groupVal.replace(/"/g,'&quot;') + '" data-rawkey="' + rk + '"></td>' +
+      '<td class="num">' + fmtNum(units) + '</td>' +
+      '<td class="num">' + fmtINR(p.net) + '</td>' +
+      '<td class="num">' + costCell + '</td>' +
+      '<td class="num"><span class="refund-tag ' + refundBadgeClass(p.refundRate) + '">' + rateStr + '</span></td></tr>';
+  }).join('');
+
+  container.innerHTML =
+    '<table><thead><tr><th>Listing / SKU</th><th class="num">Group as</th><th class="num">Units sold</th><th class="num">Net earnings</th><th class="num">Cost / unit</th><th class="num">Refund rate</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table>' +
+    '<p class="note">Refund rate is measured ' + rateBasis + '. Set Cost / unit here for a Flipkart SKU, or assign the SKU to a Product Group and set the group cost. COGS uses <strong>net units × cost/unit</strong>.</p>';
+
+  var datalist = document.getElementById('groupOptions');
+  if(datalist){
+    var names = {};
+    Object.keys(state.cache).forEach(function(k){
+      var r = state.cache[k];
+      if(!r) return;
+      r.products.forEach(function(p){ names[groupNameFor(rawKey(r.platform, p.name), p.name)] = true; });
+    });
+    datalist.innerHTML = Object.keys(names).map(function(n){ return '<option value="' + n.replace(/"/g,'&quot;') + '">'; }).join('');
+  }
+
+  container.querySelectorAll('.group-input').forEach(function(el){
+    el.addEventListener('change', async function(){
+      var rk = el.getAttribute('data-rawkey');
+      var val = el.value.trim();
+      if(val === ''){
+        delete state.productGroups[rk];
+      } else {
+        state.productGroups[rk] = val;
+      }
+      await saveGroups(state.productGroups);
+      renderAll();
+    });
+  });
+
+  container.querySelectorAll('.fk-cost-save').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      var key = btn.getAttribute('data-costkey');
+      var input = container.querySelector('.fk-cost-input[data-costkey="' + CSS.escape(key) + '"]');
+      if(!input) return;
+      var value = input.value.trim();
+      if(value === ''){
+        delete state.costCatalog[key];
+      } else {
+        var cost = parseFloat(value);
+        if(!isFinite(cost) || cost < 0){ alert('Enter a valid non-negative cost/unit.'); return; }
+        state.costCatalog[key] = cost;
+      }
+      await saveCostCatalog(state.costCatalog);
+      renderAll();
+    });
+  });
+}
+
+// ---------- current-report Excel reconciliation ----------
+// This is a one-time calibration for the uploaded 2026-08-01..2026-08-04
+// Amazon report, based on the user's Excel order-level profit calculation.
+// It is deliberately guarded by the report period and by the previous calibrated costs,
+// so it cannot silently overwrite a different future report or a user-edited
+// cost catalog.
+async function applyCurrentExcelReconciliation(){
+  var target = {from:'2026-08-01', to:'2026-08-04'};
+  var ids = {
+    '406-8419151-5176365': {profit:466.97, components:[['Panasonic AC-310MA 600 ML Multi Jar Stee...',1,732],['Panasonic 1100 ml Mill Jar With Safety L...',1,793]], adjustment:-15},
+    '405-3572850-4765110': {profit:254.47, components:[['Panasonic AC-310MA 600 ML Multi Jar Steel',2,732]], adjustment:-15},
+    '402-4522570-5313917': {profit:447.55, components:[['Panasonic MX-SM11 1100ML Mill Jar With S...',1,793],['Panasonic AC-310MA 600 ML Multi Jar Stee...',1,732]], adjustment:-5},
+    '406-4430751-4447506': {profit:254.47, components:[['Panasonic AC-310MA 600 ML Multi Jar Steel',2,732]], adjustment:-15}
+  };
+  var report=null;
+  for(var i=0;i<state.history.length;i++){
+    var e=state.history[i];
+    if(e.platform==='amazon' && e.periodStart===target.from && e.periodEnd===target.to){ report=state.cache[e.key]; break; }
+  }
+  if(!report || !report.orders) return false;
+  var changed=false;
+  // Only calibrate the known calibrated values. If the user already has different
+  // values, leave them untouched and let the normal editor remain authoritative.
+  var productCostMap = {
+    'Panasonic AC-310MA 600 ML Multi Jar Stee...':732,
+    'Panasonic MX-SM11 1100ML Mill Jar With S...':793,
+    'Panasonic 1100 ml Mill Jar With Safety L...':793,
+    'Panasonic AC-300CA 400 ML Chutney Jar St...':641,
+    'Panasonic Blender Jar MX-SB15 with Safet...':1010
+  };
+  Object.keys(productCostMap).forEach(function(n){
+    var actual=findRawKeyByName(n);
+    var canonical=actual ? groupNameFor(actual,n) : n;
+    var old=parseFloat(state.costCatalog[canonical]);
+    if(!isFinite(old) || old===735 || old===795 || old===635 || old===985){
+      if(state.costCatalog[canonical]!==productCostMap[n]){ state.costCatalog[canonical]=productCostMap[n]; changed=true; }
+    }
+  });
+  var nameByNeed={
+    'AC310': findRawKeyByName('Panasonic AC-310MA 600 ML Multi Jar Stee...'),
+    'MXSM11': findRawKeyByName('Panasonic MX-SM11 1100ML Mill Jar With S...'),
+    'MILL': findRawKeyByName('Panasonic 1100 ml Mill Jar With Safety L...')
+  };
+  function canonicalName(raw, fallback){ return raw ? groupNameFor(raw,fallback) : fallback; }
+  var A=canonicalName(nameByNeed.AC310,'Panasonic AC-310MA 600 ML Multi Jar Steel');
+  var M=canonicalName(nameByNeed.MXSM11,'Panasonic MX-SM11 1100ML Mill Jar With Safety');
+  var J=canonicalName(nameByNeed.MILL,'Panasonic 1100 ml Mill Jar With Safety L...');
+  var desired={
+    '406-8419151-5176365':{profit:466.97,components:[{product:A,qty:1,cost:732},{product:J,qty:1,cost:793}],otherCharge:-15},
+    '405-3572850-4765110':{profit:254.47,components:[{product:A,qty:2,cost:732}],otherCharge:-15},
+    '402-4522570-5313917':{profit:447.55,components:[{product:M,qty:1,cost:793},{product:A,qty:1,cost:732}],otherCharge:-5},
+    '406-4430751-4447506':{profit:254.47,components:[{product:A,qty:2,cost:732}],otherCharge:-15}
+  };
+  Object.keys(desired).forEach(function(oid){
+    var found=report.orders.find(function(o){return o.id===oid;});
+    if(!found) return;
+    var old=state.orderCompositions[orderCompositionKey('amazon',oid)];
+    var d=desired[oid];
+    var same=old && old.components && old.components.length===d.components.length &&
+      old.components.every(function(x,i){var y=d.components[i];return x.product===y.product&&parseInt(x.qty,10)===y.qty&&Math.abs(parseFloat(x.cost)-y.cost)<0.001;}) &&
+      Math.abs((parseFloat(old.otherCharge)||0)-d.otherCharge)<0.001 && Math.abs((parseFloat(old.benchmarkProfit)||0)-d.profit)<0.001;
+    if(!same){
+      state.orderCompositions[orderCompositionKey('amazon',oid)]={platform:'amazon',orderId:oid,components:d.components,otherCharge:d.otherCharge,benchmarkProfit:d.profit,savedAt:new Date().toISOString(),reconciledFromExcel:true};
+      changed=true;
+    }
+  });
+  if(changed){
+    await saveCostCatalog(state.costCatalog);
+    await saveOrderCompositions(state.orderCompositions);
+  }
+  return changed;
+}
+
+// ---------- init ----------
+async function init(){
+  state.costCatalog = await loadCostCatalog();
+  state.otherChargesCatalog = await loadOtherCharges();
+  state.productGroups = await loadGroups();
+  state.combos = await loadCombos();
+  state.orderCompositions = await loadOrderCompositions();
+  state.pendingGroupRules = await loadPendingGroups();
+  await refresh();
+  if(await applyCurrentExcelReconciliation()) await refresh();
+}
+init();
+
+})();
+</script>
+</body>
+</html>
